@@ -234,3 +234,103 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     end
     return oldNamecall(self, unpack(args))
 end)
+local itemsPath = workspace:WaitForChild("Ignore"):WaitForChild("Items")
+local highlightTag = "ItemESP_Highlight"
+local billboardTag = "ItemESP_Billboard"
+local active = false
+local connections = {}
+
+local nameMap = {
+    ["Ammo"] = "弹药",
+    ["Barbed Wire"] = "铁丝网",
+    ["Body Armor"] = "防弹衣",
+    ["Clap Bomb"] = "拍手炸弹",
+    ["Energy Drink"] = "能量饮料",
+    ["Gas Mask"] = "防毒面具",
+    ["Jack"] = "千斤顶",
+    ["Molotov"] = "燃烧瓶",
+    ["Nerve Gas"] = "神经毒气",
+    ["Bandages"] = "绷带",
+    ["bandages"] = "绷带"
+}
+
+local function getChineseName(obj)
+    local originalName = obj.Name
+    return nameMap[originalName] or originalName
+end
+
+local function removeESP(obj)
+    local highlight = obj:FindFirstChild(highlightTag)
+    if highlight then highlight:Destroy() end
+    
+    local billboard = obj:FindFirstChild(billboardTag)
+    if billboard then billboard:Destroy() end
+end
+
+local function applyESP(obj)
+    if not (obj:IsA("BasePart") or obj:IsA("Model")) then return end
+    
+    local highlight = Instance.new("Highlight")
+    highlight.Name = highlightTag
+    highlight.FillTransparency = 1
+    highlight.OutlineColor = Color3.fromRGB(170, 0, 255)
+    highlight.OutlineTransparency = 0
+    highlight.Adornee = obj
+    highlight.Parent = obj
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = billboardTag
+    billboard.Size = UDim2.new(0, 60, 0, 20)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = 1000
+    billboard.ExtentsOffset = Vector3.new(0, 1, 0)
+    billboard.Adornee = obj
+    
+    local label = Instance.new("TextLabel")
+    label.BackgroundTransparency = 1
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.Text = getChineseName(obj)
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextStrokeTransparency = 0.5
+    label.TextSize = 8
+    label.Font = Enum.Font.SourceSansBold
+    label.Parent = billboard
+    
+    billboard.Parent = obj
+end
+
+local function updateESP()
+    for _, item in ipairs(itemsPath:GetChildren()) do
+        if active then
+            if not item:FindFirstChild(highlightTag) then
+                applyESP(item)
+            end
+        else
+            removeESP(item)
+        end
+    end
+end
+
+Tab:Toggle({
+    Title = "物品透视",
+    Value = false,
+    Callback = function(state)
+        active = state
+        
+        if active then
+            updateESP()
+            connections.ChildAdded = itemsPath.ChildAdded:Connect(function(child)
+                task.wait(0.1)
+                if active then applyESP(child) end
+            end)
+        else
+            if connections.ChildAdded then
+                connections.ChildAdded:Disconnect()
+                connections.ChildAdded = nil
+            end
+            for _, item in ipairs(itemsPath:GetChildren()) do
+                removeESP(item)
+            end
+        end
+    end
+})
