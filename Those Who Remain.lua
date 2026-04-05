@@ -25,7 +25,9 @@ local Tab = Window:Tab({
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
 
 local tpOn = false
 local tpSpd = 5
@@ -36,14 +38,16 @@ Tab:Toggle({
     Callback = function(state)
         tpOn = state
         if state then
-            spawn(function()
+            task.spawn(function()
                 while tpOn do
-                    local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-                    local hrp = chr:FindFirstChild("HumanoidRootPart")
-                    local hum = chr:FindFirstChildWhichIsA("Humanoid")
                     local delta = RunService.Heartbeat:Wait()
-                    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
-                        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * tpSpd * delta)
+                    local chr = LocalPlayer.Character
+                    if chr then
+                        local hrp = chr:FindFirstChild("HumanoidRootPart")
+                        local hum = chr:FindFirstChildWhichIsA("Humanoid")
+                        if hrp and hum and hum.MoveDirection.Magnitude > 0 then
+                            hrp.CFrame = hrp.CFrame + (hum.MoveDirection * tpSpd * delta)
+                        end
                     end
                 end
             end)
@@ -62,15 +66,8 @@ Tab:Slider({
         tpSpd = v
     end
 })
-local Workspace = game:GetService("Workspace")
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
 
-local Entities = Workspace:WaitForChild("Entities"):WaitForChild("Infected")
-
+local Entities = Workspace:FindFirstChild("Entities") and Workspace.Entities:FindFirstChild("Infected")
 local Config = {
     SilentAim = false,
     SilentAimFOV = 100,
@@ -85,9 +82,9 @@ SilentFOV.Color = Color3.fromRGB(255, 255, 255)
 SilentFOV.Thickness = 1
 SilentFOV.Transparency = 1
 SilentFOV.Filled = false
-SilentFOV.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
 local function getTarget(fov)
+    if not Entities then return nil end
     local closest, dist = nil, fov
     for _, entity in ipairs(Entities:GetChildren()) do
         local head = entity:FindFirstChild("Head")
@@ -119,9 +116,7 @@ end
 
 local function removeESP(object)
     local highlight = object:FindFirstChild("ESPHighlight")
-    if highlight then
-        highlight:Destroy()
-    end
+    if highlight then highlight:Destroy() end
 end
 
 Tab:Toggle({
@@ -165,25 +160,23 @@ Tab:Toggle({
     Callback = function(state)
         Config.InfectedESP = state
         if not state then
-            for _, v in ipairs(Entities:GetChildren()) do
-                removeESP(v)
+            if Entities then
+                for _, v in ipairs(Entities:GetChildren()) do
+                    removeESP(v)
+                end
             end
         end
     end
 })
 
 local cachedSilentTarget = nil
-
 RunService.RenderStepped:Connect(function()
-    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    SilentFOV.Position = center
-
+    SilentFOV.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     if Config.SilentAim then
         cachedSilentTarget = getTarget(Config.SilentAimFOV)
     else
         cachedSilentTarget = nil
     end
-
     if Config.PlayerESP then
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
@@ -191,8 +184,7 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-
-    if Config.InfectedESP then
+    if Config.InfectedESP and Entities then
         for _, e in ipairs(Entities:GetChildren()) do
             local hum = e:FindFirstChildOfClass("Humanoid")
             if hum and hum.Health > 0 then
@@ -213,20 +205,16 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
             local origin
             if method == "Raycast" then
                 origin = args[1]
+                return {
+                    Instance = cachedSilentTarget,
+                    Position = cachedSilentTarget.Position,
+                    Normal = (origin - cachedSilentTarget.Position).Unit,
+                    Material = Enum.Material.Plastic
+                }
             else
                 local ray = args[1]
-                if typeof(ray) == "Ray" then origin = ray.Origin end
-            end
-            
-            if origin then
-                if method == "Raycast" then
-                    return {
-                        Instance = cachedSilentTarget,
-                        Position = cachedSilentTarget.Position,
-                        Normal = (origin - cachedSilentTarget.Position).Unit,
-                        Material = Enum.Material.Plastic
-                    }
-                else
+                if typeof(ray) == "Ray" then
+                    origin = ray.Origin
                     return cachedSilentTarget, cachedSilentTarget.Position, (origin - cachedSilentTarget.Position).Unit, Enum.Material.Plastic
                 end
             end
@@ -234,11 +222,12 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     end
     return oldNamecall(self, unpack(args))
 end)
-local itemsPath = workspace:WaitForChild("Ignore"):WaitForChild("Items")
+
+local itemsPath = Workspace:FindFirstChild("Ignore") and Workspace.Ignore:FindFirstChild("Items")
 local highlightTag = "ItemESP_Highlight"
 local billboardTag = "ItemESP_Billboard"
-local active = false
-local connections = {}
+local itemActive = false
+local itemConnections = {}
 
 local nameMap = {
     ["Ammo"] = "弹药",
@@ -254,22 +243,12 @@ local nameMap = {
     ["bandages"] = "绷带"
 }
 
-local function getChineseName(obj)
-    local originalName = obj.Name
-    return nameMap[originalName] or originalName
-end
-
-local function removeESP(obj)
-    local highlight = obj:FindFirstChild(highlightTag)
-    if highlight then highlight:Destroy() end
+local function applyItemESP(obj)
+    if not obj or obj:FindFirstChild(highlightTag) then return end
     
-    local billboard = obj:FindFirstChild(billboardTag)
-    if billboard then billboard:Destroy() end
-end
+    local targetPart = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart")
+    if not targetPart then return end
 
-local function applyESP(obj)
-    if not (obj:IsA("BasePart") or obj:IsA("Model")) then return end
-    
     local highlight = Instance.new("Highlight")
     highlight.Name = highlightTag
     highlight.FillTransparency = 1
@@ -280,57 +259,103 @@ local function applyESP(obj)
 
     local billboard = Instance.new("BillboardGui")
     billboard.Name = billboardTag
-    billboard.Size = UDim2.new(0, 60, 0, 20)
+    billboard.Size = UDim2.new(0, 80, 0, 20)
     billboard.AlwaysOnTop = true
     billboard.MaxDistance = 1000
     billboard.ExtentsOffset = Vector3.new(0, 1, 0)
-    billboard.Adornee = obj
+    billboard.Adornee = targetPart
     
     local label = Instance.new("TextLabel")
     label.BackgroundTransparency = 1
     label.Size = UDim2.new(1, 0, 1, 0)
-    label.Text = getChineseName(obj)
+    label.Text = nameMap[obj.Name] or obj.Name
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
     label.TextStrokeTransparency = 0.5
-    label.TextSize = 8
+    label.TextSize = 10
     label.Font = Enum.Font.SourceSansBold
     label.Parent = billboard
     
     billboard.Parent = obj
 end
 
-local function updateESP()
-    for _, item in ipairs(itemsPath:GetChildren()) do
-        if active then
-            if not item:FindFirstChild(highlightTag) then
-                applyESP(item)
-            end
-        else
-            removeESP(item)
-        end
-    end
+local function removeItemESP(obj)
+    local h = obj:FindFirstChild(highlightTag)
+    local b = obj:FindFirstChild(billboardTag)
+    if h then h:Destroy() end
+    if b then b:Destroy() end
 end
 
 Tab:Toggle({
     Title = "物品透视",
     Value = false,
     Callback = function(state)
-        active = state
+        itemActive = state
+        if not itemsPath then return end
         
-        if active then
-            updateESP()
-            connections.ChildAdded = itemsPath.ChildAdded:Connect(function(child)
-                task.wait(0.1)
-                if active then applyESP(child) end
+        if itemActive then
+            for _, item in ipairs(itemsPath:GetChildren()) do
+                applyItemESP(item)
+            end
+            itemConnections.ChildAdded = itemsPath.ChildAdded:Connect(function(child)
+                task.defer(function()
+                    if itemActive then applyItemESP(child) end
+                end)
             end)
         else
-            if connections.ChildAdded then
-                connections.ChildAdded:Disconnect()
-                connections.ChildAdded = nil
+            if itemConnections.ChildAdded then
+                itemConnections.ChildAdded:Disconnect()
+                itemConnections.ChildAdded = nil
             end
             for _, item in ipairs(itemsPath:GetChildren()) do
-                removeESP(item)
+                removeItemESP(item)
             end
+        end
+    end
+})
+local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+local Remote = ReplicatedStorage:WaitForChild("RF")
+
+local pickupOn = false
+local itemsPath = Workspace:WaitForChild("Ignore"):WaitForChild("Items")
+
+Tab:Toggle({
+    Title = "物品拾取光环",
+    Value = false,
+    Callback = function(state)
+        pickupOn = state
+        if pickupOn then
+            task.spawn(function()
+                while pickupOn do
+                    task.wait(0.1)
+                    local char = LocalPlayer.Character
+                    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        for _, item in ipairs(itemsPath:GetChildren()) do
+                            local targetPart = item:IsA("BasePart") and item or item:FindFirstChildWhichIsA("BasePart")
+                            if targetPart then
+                                local mag = (hrp.Position - targetPart.Position).Magnitude
+                                if mag <= 20 then
+                                    local args = {
+                                        "CheckInteract",
+                                        {
+                                            Target = {
+                                                Mag = mag,
+                                                Type = "Item",
+                                                CanInteract = true,
+                                                Obj = item
+                                            }
+                                        }
+                                    }
+                                    Remote:InvokeServer(unpack(args))
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
         end
     end
 })
