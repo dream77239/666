@@ -1,0 +1,374 @@
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/china-ui/refs/heads/main/main%20(6).lua"))()
+local Window = WindUI:CreateWindow({
+    Title = "定制",
+    Icon = "eye",
+    IconThemed = true,
+    Author = "dick",
+    Folder = "CloudHub",
+    Size = UDim2.fromOffset(500, 400),
+    Transparent = true,
+    Theme = "Light",
+    Background = nil,
+    User = {
+        Enabled = true,
+        Callback = function() end,
+        Anonymous = false
+    },
+    SideBarWidth = 200,
+    ScrollBarEnabled = true
+})
+local Tab = Window:Tab({  
+    Title = "功能",  
+    Icon = "hammer",  
+    Locked = false,
+})
+Tab:Button({
+    Title = "汉化飞行",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/fly/refs/heads/main/README.md"))()
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local tpwalking = false
+local tpwalkSpeed = 5
+
+Tab:Toggle({
+    Title = "速度",
+    Value = false,
+    Callback = function(state)
+        tpwalking = state
+        if state then
+            spawn(function()
+                while tpwalking do
+                    local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                    local hrp = chr:FindFirstChild("HumanoidRootPart")
+                    local hum = chr:FindFirstChildWhichIsA("Humanoid")
+                    local delta = RunService.Heartbeat:Wait()
+                    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
+                        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * tpwalkSpeed * delta)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+Tab:Slider({
+    Title = "速度调节",
+    Value = {
+        Min = 0,
+        Max = 100,
+        Default = tpwalkSpeed,
+    },
+    Callback = function(value)
+        tpwalkSpeed = value
+    end
+})
+local OriginalHoldTimes = {}
+local promptConnection
+local heartbeatConnection
+
+Tab:Toggle({
+    Title = "秒互动",
+    Value = false,
+    Callback = function(state)
+        if state then
+            for _, prompt in pairs(workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[prompt] then
+                        OriginalHoldTimes[prompt] = prompt.HoldDuration
+                    end
+                    prompt.HoldDuration = 0
+                end
+            end
+            promptConnection = workspace.DescendantAdded:Connect(function(obj)
+                if obj:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[obj] then
+                        OriginalHoldTimes[obj] = obj.HoldDuration
+                    end
+                    obj.HoldDuration = 0
+                end
+            end)
+            heartbeatConnection = RunService.Heartbeat:Connect(function()
+                for prompt, original in pairs(OriginalHoldTimes) do
+                    if prompt and prompt.Parent then
+                        prompt.HoldDuration = 0
+                    end
+                end
+            end)
+        else
+            if promptConnection then promptConnection:Disconnect() end
+            if heartbeatConnection then heartbeatConnection:Disconnect() end
+            for prompt, original in pairs(OriginalHoldTimes) do
+                if prompt and prompt.Parent then
+                    prompt.HoldDuration = original
+                end
+            end
+        end
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+
+local NoclipEnabled = false
+local NoclipConnection
+
+local function setCharacterCollision(character, state)
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = state
+        end
+    end
+end
+
+local function enableNoclip()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    setCharacterCollision(character, false)
+
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+    end
+
+    NoclipConnection = RunService.Stepped:Connect(function()
+        if not NoclipEnabled then return end
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in ipairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableNoclip()
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+
+    local character = LocalPlayer.Character
+    if character then
+        setCharacterCollision(character, true)
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if NoclipEnabled then
+        task.wait(0.2)
+        enableNoclip()
+    end
+end)
+
+Tab:Toggle({
+    Title = "穿墙",
+    Value = false,
+    Callback = function(state)
+        NoclipEnabled = state
+        if state then
+            enableNoclip()
+        else
+            disableNoclip()
+        end
+    end
+})
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+
+local entitiesFolder = Workspace:FindFirstChild("Entities")
+local espEnabled = false
+local connections = {}
+
+local function removeESP(entity)
+    if entity:FindFirstChild("ESPHighlight") then
+        entity.ESPHighlight:Destroy()
+    end
+end
+
+local function clearAllESP()
+    for _, conn in pairs(connections) do
+        conn:Disconnect()
+    end
+    table.clear(connections)
+
+    if entitiesFolder then
+        for _, entity in ipairs(entitiesFolder:GetChildren()) do
+            removeESP(entity)
+        end
+    end
+end
+
+local function applyESP(entity)
+    if not espEnabled then return end
+    if not entity:IsA("Model") then return end
+
+    local highlight = entity:FindFirstChild("ESPHighlight")
+    if not highlight then
+        highlight = Instance.new("Highlight")
+        highlight.Name = "ESPHighlight"
+        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+        highlight.FillTransparency = 1 
+        highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+        highlight.OutlineTransparency = 0
+        highlight.Adornee = entity
+        highlight.Parent = entity
+    end
+end
+
+local function watchEntity(entity)
+    if not entity:IsA("Model") then return end
+    
+    applyESP(entity)
+
+    local childConn = entity.ChildAdded:Connect(function()
+        task.wait(0.1)
+        applyESP(entity)
+    end)
+    table.insert(connections, childConn)
+end
+
+local function startESP()
+    if not entitiesFolder then return end
+
+    for _, entity in ipairs(entitiesFolder:GetChildren()) do
+        watchEntity(entity)
+    end
+
+    local addedConn = entitiesFolder.ChildAdded:Connect(function(entity)
+        task.wait(0.1)
+        watchEntity(entity)
+    end)
+    table.insert(connections, addedConn)
+end
+
+Tab:Toggle({
+    Title = "怪物透视",
+    Value = false,
+    Callback = function(state)
+        espEnabled = state
+        if espEnabled then
+            startESP()
+        else
+            clearAllESP()
+        end
+    end
+})
+
+Tab:Toggle({
+    Title = "玩家透视",
+    Value = false,
+    Callback = function(state)
+        playerEspOn = state
+        if playerEspOn then
+            local function applyHighlight(parent, outlineColor)
+                if parent:FindFirstChild("_KanlHL") then return end
+                local hl = Instance.new("Highlight")
+                hl.Name = "_KanlHL"
+                hl.FillTransparency = 1
+                hl.OutlineTransparency = 0
+                hl.OutlineColor = outlineColor
+                hl.FillColor = outlineColor
+                hl.Adornee = parent
+                hl.Parent = parent
+            end
+
+            local function applyPlayerEsp(plr)
+                if plr == game:GetService("Players").LocalPlayer then return end
+                local function onChar(char)
+                    if playerEspOn then applyHighlight(char, Color3.fromRGB(0, 255, 0)) end
+                end
+                if plr.Character then onChar(plr.Character) end
+                plr.CharacterAdded:Connect(onChar)
+            end
+
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do 
+                applyPlayerEsp(plr) 
+            end
+
+            game:GetService("Players").PlayerAdded:Connect(function(plr)
+                if playerEspOn then applyPlayerEsp(plr) end
+            end)
+        else
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+                if plr ~= game:GetService("Players").LocalPlayer and plr.Character then
+                    local hl = plr.Character:FindFirstChild("_KanlHL")
+                    if hl then hl:Destroy() end
+                end
+            end
+        end
+    end
+})
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+Tab:Button({
+    Title = "删除雾",
+    Callback = function()
+        local sky = game:GetService("Lighting"):FindFirstChildOfClass("Sky")
+        if sky then sky:Destroy() end
+    end,
+})
+
+Tab:Toggle({
+    Title = "地图高亮",
+    Value = false,
+    Callback = function(state)
+        local Lighting = game:GetService("Lighting")
+        if state then
+            Lighting.Brightness = 5
+            Lighting.Ambient = Color3.fromRGB(160, 160, 160)
+            Lighting.OutdoorAmbient = Color3.fromRGB(180, 180, 180)
+        else
+            Lighting.Brightness = 1
+            Lighting.Ambient = Color3.fromRGB(70, 70, 70)
+            Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+        end
+    end,
+})
+Tab:Toggle({
+    Title = "无限理智值",
+    Value = false,
+    Callback = function(state)
+        getgenv().InfiniteSanity = state
+        
+        task.spawn(function()
+            local player = game:GetService("Players").LocalPlayer
+            while getgenv().InfiniteSanity do
+                local char = player.Character
+                if char then
+                    char:SetAttribute("Sanity", 100)
+                end
+                task.wait(0.05)
+            end
+        end)
+    end
+})
+Tab:Toggle({
+    Title = "推开怪物光环",
+    Value = false,
+    Callback = function(state)
+        getgenv().PushAura = state
+        
+        task.spawn(function()
+            local remote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 5)
+            local keybinds = remote and remote:WaitForChild("Keybinds", 5)
+            
+            if not keybinds then return end
+            
+            while getgenv().PushAura do
+                keybinds:FireServer("Push")
+                task.wait(0.01)
+            end
+        end)
+    end
+})
