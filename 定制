@@ -1,14 +1,103 @@
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+
+local localPlayer = Players.LocalPlayer
+local username = localPlayer.Name
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "IntroAnimationGui"
+screenGui.IgnoreGuiInset = true
+screenGui.ResetOnSpawn = false
+screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+local blurEffect = Instance.new("BlurEffect")
+blurEffect.Size = 0
+blurEffect.Parent = Lighting
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(1, 0, 1, 0)
+mainFrame.BackgroundTransparency = 1
+mainFrame.Parent = screenGui
+
+local contentContainer = Instance.new("Frame")
+contentContainer.Size = UDim2.new(0, 600, 0, 100)
+contentContainer.Position = UDim2.new(0.65, 0, 0.5, 0)
+contentContainer.AnchorPoint = Vector2.new(0.5, 0.5)
+contentContainer.BackgroundTransparency = 1
+contentContainer.Parent = mainFrame
+
+local bar = Instance.new("Frame")
+bar.Size = UDim2.new(0, 4, 0, 0)
+bar.Position = UDim2.new(0, 0, 0.5, 0)
+bar.AnchorPoint = Vector2.new(0, 0.5)
+bar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+bar.BorderSizePixel = 0
+bar.Parent = contentContainer
+
+local textClipFrame = Instance.new("Frame")
+textClipFrame.Size = UDim2.new(0, 0, 1, 0)
+textClipFrame.Position = UDim2.new(0, 15, 0, 0)
+textClipFrame.BackgroundTransparency = 1
+textClipFrame.ClipsDescendants = true
+textClipFrame.Parent = contentContainer
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(0, 580, 1, 0)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = username .. "的专属脚本"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 28
+titleLabel.Font = Enum.Font.GothamMedium
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = textClipFrame
+
+local tweenInfoFast = TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local tweenInfoSlow = TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+local blurIn = TweenService:Create(blurEffect, tweenInfoSlow, {Size = 24})
+local barGrow = TweenService:Create(bar, tweenInfoFast, {Size = UDim2.new(0, 4, 0, 50)})
+local textSlideIn = TweenService:Create(textClipFrame, tweenInfoSlow, {Size = UDim2.new(0, 585, 1, 0)})
+
+local textSlideOut = TweenService:Create(textClipFrame, tweenInfoFast, {Size = UDim2.new(0, 0, 1, 0)})
+local barShrink = TweenService:Create(bar, tweenInfoFast, {Size = UDim2.new(0, 4, 0, 0)})
+local blurOut = TweenService:Create(blurEffect, tweenInfoSlow, {Size = 0})
+
+blurIn:Play()
+task.wait(0.4)
+
+barGrow:Play()
+barGrow.Completed:Wait()
+
+textSlideIn:Play()
+textSlideIn.Completed:Wait()
+
+task.wait(1.5)
+
+textSlideOut:Play()
+textSlideOut.Completed:Wait()
+
+barShrink:Play()
+blurOut:Play()
+
+barShrink.Completed:Wait()
+blurOut.Completed:Wait()
+
+blurEffect:Destroy()
+screenGui:Destroy()
+
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/china-ui/refs/heads/main/main%20(6).lua"))()
 local Window = WindUI:CreateWindow({
-    Title = "定制",
-    Icon = "eye",
+    Title = "<font color=\"#E6CA65\">定制</font>",
+    Icon = "chess-king",
     IconThemed = true,
-    Author = "dick",
+    Author = "尊敬的 " .. game:GetService("Players").LocalPlayer.Name .. " 用户",
     Folder = "CloudHub",
     Size = UDim2.fromOffset(500, 400),
     Transparent = true,
-    Theme = "Light",
-    Background = nil,
+    Theme = "Dark",
+    Background = "https://files.catbox.moe/oyrqgc.jpg",
     User = {
         Enabled = true,
         Callback = function() end,
@@ -17,6 +106,111 @@ local Window = WindUI:CreateWindow({
     SideBarWidth = 200,
     ScrollBarEnabled = true
 })
+local PaidTag = Window:Tag({
+    Title = '<font color="rgb(0,120,255)">定</font><font color="rgb(50,100,255)">制</font><font color="rgb(100,80,255)">版</font>',
+    Icon = "dollar-sign",
+    Radius = 999,
+    Color = Color3.fromRGB(0, 0, 0),
+})
+local RunService = game:GetService("RunService")
+
+local FPSTag = Window:Tag({
+    Title = "-- FPS",
+    Icon = "signal",
+    Radius = 999,
+    Color = Color3.fromRGB(0, 0, 0),
+})
+
+local lastTime = tick()
+local frameCount = 0
+
+RunService.RenderStepped:Connect(function()
+    frameCount = frameCount + 1
+end)
+
+task.spawn(function()
+    while true do
+        local now = tick()
+        local deltaTime = now - lastTime
+        
+        if deltaTime >= 0.5 then
+            local fps = math.floor(frameCount / deltaTime)
+            frameCount = 0
+            lastTime = now
+
+            local displayColor = "rgb(255,255,255)"
+            local displayIcon = "signal"
+
+            if fps >= 60 then
+                displayColor = "rgb(0,255,0)"
+                displayIcon = "signal"
+            elseif fps >= 30 then
+                displayColor = "rgb(255,255,0)"
+                displayIcon = "signal-high"
+            else
+                displayColor = "rgb(255,0,0)"
+                displayIcon = "signal-medium"
+            end
+
+            pcall(function()
+                FPSTag.Icon = displayIcon
+                FPSTag:SetIcon(displayIcon)
+            end)
+
+            FPSTag:SetTitle(string.format('<font color="%s">%d FPS</font>', displayColor, fps))
+        end
+        task.wait(0.1)
+    end
+end)
+task.spawn(function()
+    local textLabel = nil
+    while not textLabel do
+        for _, v in pairs(game:GetService("CoreGui"):GetDescendants()) do
+            if v:IsA("TextLabel") and v.Text == "尊敬的 " .. game:GetService("Players").LocalPlayer.Name .. " 用户" then
+                textLabel = v
+                break
+            end
+        end
+        if not textLabel then
+            for _, v in pairs(game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):GetDescendants()) do
+                if v:IsA("TextLabel") and v.Text == "尊敬的 " .. game:GetService("Players").LocalPlayer.Name .. " 用户" then
+                    textLabel = v
+                    break
+                end
+            end
+        end
+        task.wait(0.5)
+    end
+
+    textLabel.RichText = true
+    local baseText = "尊敬的 " .. game:GetService("Players").LocalPlayer.Name .. " 用户"
+    local len = utf8.len(baseText)
+    
+    local function getCharacters(str)
+        local chars = {}
+        for _, c in utf8.codes(str) do
+            table.insert(chars, utf8.char(c))
+        end
+        return chars
+    end
+    
+    local chars = getCharacters(baseText)
+    local counter = 0
+    
+    game:GetService("RunService").Heartbeat:Connect(function()
+        counter = counter + 2
+        local coloredText = ""
+        for i = 1, len do
+            local hue = ((counter + (i * 15)) % 360) / 360
+            local color = Color3.fromHSV(hue, 0.6, 1)
+            local hex = string.format("#%02X%02X%02X", math.floor(color.R * 255), math.floor(color.G * 255), math.floor(color.B * 255))
+            coloredText = coloredText .. "<font color=\"" .. hex .. "\">" .. chars[i] .. "</font>"
+        end
+        textLabel.Text = coloredText
+    end)
+end)
+
+
 local Tab = Window:Tab({  
     Title = "功能",  
     Icon = "hammer",  
