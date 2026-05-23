@@ -501,6 +501,125 @@ Tab:Toggle({
         end
     end
 })
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+
+local localPlayer = Players.LocalPlayer
+local activeESP = {}
+local espEnabled = false
+local connections = {}
+
+local function createHighlight(target, parent)
+    if activeESP[target] then return end
+    
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESP_Highlight"
+    highlight.FillColor = Color3.fromRGB(138, 43, 226)
+    highlight.FillTransparency = 0.5
+    highlight.OutlineColor = Color3.fromRGB(148, 0, 211)
+    highlight.OutlineTransparency = 0
+    highlight.Adornee = target
+    highlight.Parent = parent
+    
+    activeESP[target] = highlight
+end
+
+local function removeHighlight(target)
+    if activeESP[target] then
+        activeESP[target]:Destroy()
+        activeESP[target] = nil
+    end
+end
+
+local function checkWirePanel(child)
+    if child.Name == "WirePanel" then
+        if child:FindFirstChild("WirePanelHighlight", true) then
+            if espEnabled then
+                createHighlight(child, child)
+            end
+        end
+    end
+end
+
+local function checkPrayerBlack(child)
+    if child.Name == "PrayerBlack" then
+        if espEnabled then
+            createHighlight(child, child)
+        end
+    end
+end
+
+local function updateESP(state)
+    espEnabled = state
+    
+    for _, conn in pairs(connections) do
+        conn:Disconnect()
+    end
+    connections = {}
+    
+    for target, highlight in pairs(activeESP) do
+        highlight:Destroy()
+    end
+    activeESP = {}
+    
+    if not espEnabled then return end
+    
+    task.spawn(function()
+        local mapPath = Workspace:WaitForChild("Map", 5)
+        if mapPath then
+            mapPath = mapPath:WaitForChild("WirePanels", 5)
+        end
+        
+        if mapPath and espEnabled then
+            for _, child in pairs(mapPath:GetChildren()) do
+                checkWirePanel(child)
+            end
+            table.insert(connections, mapPath.ChildAdded:Connect(checkWirePanel))
+            table.insert(connections, mapPath.ChildRemoved:Connect(removeHighlight))
+        end
+    end)
+    
+    task.spawn(function()
+        local debrisPath = Workspace:WaitForChild("Debris", 5)
+        
+        if debrisPath and espEnabled then
+            for _, child in pairs(debrisPath:GetChildren()) do
+                checkPrayerBlack(child)
+            end
+            table.insert(connections, debrisPath.ChildAdded:Connect(checkPrayerBlack))
+            table.insert(connections, debrisPath.ChildRemoved:Connect(removeHighlight))
+        end
+    end)
+    
+    table.insert(connections, RunService.Heartbeat:Connect(function()
+        local mapPath = Workspace:FindFirstChild("Map")
+        if mapPath then
+            mapPath = mapPath:FindFirstChild("WirePanels")
+        end
+        
+        if mapPath then
+            for _, child in pairs(mapPath:GetChildren()) do
+                if child.Name == "WirePanel" then
+                    local hasHighlight = child:FindFirstChild("WirePanelHighlight", true)
+                    if hasHighlight and not activeESP[child] then
+                        createHighlight(child, child)
+                    elseif not hasHighlight and activeESP[child] then
+                        removeHighlight(child)
+                    end
+                end
+            end
+        end
+    end))
+end
+
+Tab:Toggle({
+    Title = "任务透视",
+    Value = false,
+    Callback = function(state)
+        updateESP(state)
+    end
+})
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -564,5 +683,18 @@ Tab:Toggle({
                 task.wait(0.01)
             end
         end)
+    end
+})
+Tab:Button({
+    Title = "传送回安全区",
+    Callback = function()
+        local players = game:GetService("Players")
+        local localPlayer = players.LocalPlayer
+        if localPlayer and localPlayer.Character then
+            local rootPart = localPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if rootPart then
+                rootPart.CFrame = CFrame.new(58.37, 3.10, 37.01)
+            end
+        end
     end
 })
