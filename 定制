@@ -379,6 +379,7 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local entitiesFolder = Workspace:FindFirstChild("Entities")
+local debrisFolder = Workspace:FindFirstChild("Debris")
 local espEnabled = false
 local connections = {}
 
@@ -397,6 +398,14 @@ local function clearAllESP()
     if entitiesFolder then
         for _, entity in ipairs(entitiesFolder:GetChildren()) do
             removeESP(entity)
+        end
+    end
+    
+    if debrisFolder then
+        for _, entity in ipairs(debrisFolder:GetChildren()) do
+            if entity.Name == "PunchlineBox" then
+                removeESP(entity)
+            end
         end
     end
 end
@@ -430,18 +439,43 @@ local function watchEntity(entity)
     table.insert(connections, childConn)
 end
 
-local function startESP()
-    if not entitiesFolder then return end
+local function checkAndWatchDebris(child)
+    if child.Name == "PunchlineBox" then
+        watchEntity(child)
+    end
+end
 
-    for _, entity in ipairs(entitiesFolder:GetChildren()) do
-        watchEntity(entity)
+local function startESP()
+    if entitiesFolder then
+        for _, entity in ipairs(entitiesFolder:GetChildren()) do
+            watchEntity(entity)
+        end
+
+        local addedConn = entitiesFolder.ChildAdded:Connect(function(entity)
+            task.wait(0.1)
+            watchEntity(entity)
+        end)
+        table.insert(connections, addedConn)
     end
 
-    local addedConn = entitiesFolder.ChildAdded:Connect(function(entity)
-        task.wait(0.1)
-        watchEntity(entity)
-    end)
-    table.insert(connections, addedConn)
+    if debrisFolder then
+        for _, child in ipairs(debrisFolder:GetChildren()) do
+            checkAndWatchDebris(child)
+        end
+
+        local debrisConn = debrisFolder.ChildAdded:Connect(function(child)
+            task.wait(0.1)
+            checkAndWatchDebris(child)
+        end)
+        table.insert(connections, debrisConn)
+        
+        local debrisRemovedConn = debrisFolder.ChildRemoved:Connect(function(child)
+            if child.Name == "PunchlineBox" then
+                removeESP(child)
+            end
+        end)
+        table.insert(connections, debrisRemovedConn)
+    end
 end
 
 Tab:Toggle({
@@ -456,6 +490,7 @@ Tab:Toggle({
         end
     end
 })
+
 
 Tab:Toggle({
     Title = "玩家透视",
@@ -506,6 +541,9 @@ local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 
 local localPlayer = Players.LocalPlayer
+local mapPath = Workspace:WaitForChild("Map", 5) and Workspace.Map:WaitForChild("WirePanels", 5)
+local debrisPath = Workspace:WaitForChild("Debris", 5)
+
 local activeESP = {}
 local espEnabled = false
 local connections = {}
@@ -542,75 +580,58 @@ local function checkWirePanel(child)
     end
 end
 
-local function checkPrayerBlack(child)
-    if child.Name == "PrayerBlack" then
-        if espEnabled then
-            createHighlight(child, child)
-        end
+local function checkDebrisEntity(child)
+    if child.Name == "PunchlineBox" then return end
+    if espEnabled and child:IsA("Instance") then
+        createHighlight(child, child)
     end
 end
 
 local function updateESP(state)
     espEnabled = state
     
-    for _, conn in pairs(connections) do
-        conn:Disconnect()
-    end
-    connections = {}
-    
-    for target, highlight in pairs(activeESP) do
-        highlight:Destroy()
-    end
-    activeESP = {}
-    
-    if not espEnabled then return end
-    
-    task.spawn(function()
-        local mapPath = Workspace:WaitForChild("Map", 5)
-        if mapPath then
-            mapPath = mapPath:WaitForChild("WirePanels", 5)
+    if not espEnabled then
+        for _, conn in pairs(connections) do
+            conn:Disconnect()
         end
+        connections = {}
         
-        if mapPath and espEnabled then
+        for target, highlight in pairs(activeESP) do
+            highlight:Destroy()
+        end
+        activeESP = {}
+    else
+        if mapPath then
             for _, child in pairs(mapPath:GetChildren()) do
                 checkWirePanel(child)
             end
             table.insert(connections, mapPath.ChildAdded:Connect(checkWirePanel))
             table.insert(connections, mapPath.ChildRemoved:Connect(removeHighlight))
         end
-    end)
-    
-    task.spawn(function()
-        local debrisPath = Workspace:WaitForChild("Debris", 5)
         
-        if debrisPath and espEnabled then
+        if debrisPath then
             for _, child in pairs(debrisPath:GetChildren()) do
-                checkPrayerBlack(child)
+                checkDebrisEntity(child)
             end
-            table.insert(connections, debrisPath.ChildAdded:Connect(checkPrayerBlack))
+            table.insert(connections, debrisPath.ChildAdded:Connect(checkDebrisEntity))
             table.insert(connections, debrisPath.ChildRemoved:Connect(removeHighlight))
         end
-    end)
-    
-    table.insert(connections, RunService.Heartbeat:Connect(function()
-        local mapPath = Workspace:FindFirstChild("Map")
-        if mapPath then
-            mapPath = mapPath:FindFirstChild("WirePanels")
-        end
         
-        if mapPath then
-            for _, child in pairs(mapPath:GetChildren()) do
-                if child.Name == "WirePanel" then
-                    local hasHighlight = child:FindFirstChild("WirePanelHighlight", true)
-                    if hasHighlight and not activeESP[child] then
-                        createHighlight(child, child)
-                    elseif not hasHighlight and activeESP[child] then
-                        removeHighlight(child)
+        table.insert(connections, RunService.Heartbeat:Connect(function()
+            if mapPath then
+                for _, child in pairs(mapPath:GetChildren()) do
+                    if child.Name == "WirePanel" then
+                        local hasHighlight = child:FindFirstChild("WirePanelHighlight", true)
+                        if hasHighlight and not activeESP[child] then
+                            createHighlight(child, child)
+                        elseif not hasHighlight and activeESP[child] then
+                            removeHighlight(child)
+                        end
                     end
                 end
             end
-        end
-    end))
+        end))
+    end
 end
 
 Tab:Toggle({
@@ -620,6 +641,8 @@ Tab:Toggle({
         updateESP(state)
     end
 })
+
+
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -647,24 +670,6 @@ Tab:Toggle({
             Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
         end
     end,
-})
-Tab:Toggle({
-    Title = "无限理智值",
-    Value = false,
-    Callback = function(state)
-        getgenv().InfiniteSanity = state
-        
-        task.spawn(function()
-            local player = game:GetService("Players").LocalPlayer
-            while getgenv().InfiniteSanity do
-                local char = player.Character
-                if char then
-                    char:SetAttribute("Sanity", 100)
-                end
-                task.wait(0.05)
-            end
-        end)
-    end
 })
 Tab:Toggle({
     Title = "推开怪物光环",
