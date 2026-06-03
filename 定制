@@ -210,7 +210,8 @@ task.spawn(function()
     end)
 end)
 
-
+local function idkgame()
+Window:Divider()
 local Tab = Window:Tab({  
     Title = "功能",  
     Icon = "hammer",  
@@ -701,5 +702,378 @@ Tab:Button({
                 rootPart.CFrame = CFrame.new(58.37, 3.10, 37.01)
             end
         end
+    end
+})
+end
+local function wcbk()
+Window:Divider()
+local Tab = Window:Tab({  
+    Title = "功能",  
+    Icon = "house",  
+    Locked = false,
+})
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local meleeAuraState = false
+
+Tab:Toggle({
+    Title = "近战光环",
+    Value = false,
+    Callback = function(state)
+        meleeAuraState = state
+    end
+})
+
+local function damageMelee(target, head)
+	local melee = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("melee")
+	if melee then
+		local events = melee:FindFirstChild("ServerEvents")
+		local registerHit = events and events:FindFirstChild("RegisterHit")
+		if registerHit then
+			local args = {
+				{
+					{
+						amount = 1,
+						target = target,
+						is_friendly = false,
+						part = head,
+						cast_results = nil
+					}
+				},
+				{},
+				[4] = true,
+				[5] = false
+			}
+			registerHit:FireServer(unpack(args))
+		end
+	end
+end
+
+local function scanMelee(folder)
+	if folder then
+		for _, v in ipairs(folder:GetChildren()) do
+			if meleeAuraState then
+				local head = v:FindFirstChild("Head")
+				if head then
+					damageMelee(v, head)
+				end
+			end
+		end
+	end
+end
+
+task.spawn(function()
+	while task.wait(0.1) do
+		if meleeAuraState then
+			pcall(function()
+				local gamePath = workspace:FindFirstChild("Game")
+				local current = gamePath and gamePath:FindFirstChild("Current")
+				local spawned = current and current:FindFirstChild("Spawned")
+				local npcs = spawned and spawned:FindFirstChild("NPCs")
+				
+				if npcs then
+					scanMelee(npcs:FindFirstChild("enemies"))
+					scanMelee(npcs:FindFirstChild("bosses"))
+				end
+			end)
+		end
+	end
+end)
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local auraState = false
+local espState = false
+
+Tab:Toggle({
+    Title = "枪械光环",
+    Value = false,
+    Callback = function(state)
+        auraState = state
+    end
+})
+
+Tab:Toggle({
+    Title = "透视僵尸",
+    Value = false,
+    Callback = function(state)
+        espState = state
+    end
+})
+
+local function damagePrimary(target, head)
+	local primary = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("primary")
+	if primary then
+		local events = primary:FindFirstChild("ServerEvents")
+		local registerHit = events and events:FindFirstChild("RegisterHit")
+		if registerHit then
+			local args = {
+				{
+					{
+						amount = 1,
+						target = target,
+						is_friendly = false,
+						part = head,
+						cast_results = nil
+					}
+				},
+				{}
+			}
+			registerHit:FireServer(unpack(args))
+		end
+	end
+end
+
+local function applyEsp(target)
+	if espState then
+		if not target:FindFirstChildOfClass("Highlight") then
+			local highlight = Instance.new("Highlight")
+			highlight.FillTransparency = 1
+			highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+			highlight.OutlineTransparency = 0
+			highlight.Adornee = target
+			highlight.Parent = target
+		end
+	else
+		local highlight = target:FindFirstChildOfClass("Highlight")
+		if highlight then
+			highlight:Destroy()
+		end
+	end
+end
+
+local function scan(folder)
+	if folder then
+		for _, v in ipairs(folder:GetChildren()) do
+			applyEsp(v)
+			if auraState then
+				local head = v:FindFirstChild("Head")
+				if head then
+					damagePrimary(v, head)
+				end
+			end
+		end
+	end
+end
+
+task.spawn(function()
+	while task.wait(0.1) do
+		pcall(function()
+			local gamePath = workspace:FindFirstChild("Game")
+			local current = gamePath and gamePath:FindFirstChild("Current")
+			local spawned = current and current:FindFirstChild("Spawned")
+			local npcs = spawned and spawned:FindFirstChild("NPCs")
+			
+			if npcs then
+				scan(npcs:FindFirstChild("enemies"))
+				scan(npcs:FindFirstChild("bosses"))
+			end
+		end)
+	end
+end)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+Tab:Toggle({
+    Title = "玩家透视",
+    Value = false,
+    Callback = function(state)
+        playerEspOn = state
+        if playerEspOn then
+            local function applyHighlight(parent, outlineColor)
+                if parent:FindFirstChild("_KanlHL") then return end
+                local hl = Instance.new("Highlight")
+                hl.Name = "_KanlHL"
+                hl.FillTransparency = 1
+                hl.OutlineTransparency = 0
+                hl.OutlineColor = outlineColor
+                hl.FillColor = outlineColor
+                hl.Adornee = parent
+                hl.Parent = parent
+            end
+
+            local function applyPlayerEsp(plr)
+                if plr == game:GetService("Players").LocalPlayer then return end
+                local function onChar(char)
+                    if playerEspOn then applyHighlight(char, Color3.fromRGB(0, 255, 0)) end
+                end
+                if plr.Character then onChar(plr.Character) end
+                plr.CharacterAdded:Connect(onChar)
+            end
+
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do 
+                applyPlayerEsp(plr) 
+            end
+
+            game:GetService("Players").PlayerAdded:Connect(function(plr)
+                if playerEspOn then applyPlayerEsp(plr) end
+            end)
+        else
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+                if plr ~= game:GetService("Players").LocalPlayer and plr.Character then
+                    local hl = plr.Character:FindFirstChild("_KanlHL")
+                    if hl then hl:Destroy() end
+                end
+            end
+        end
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local tpwalking = false
+local tpwalkSpeed = 5
+
+Tab:Toggle({
+    Title = "速度",
+    Value = false,
+    Callback = function(state)
+        tpwalking = state
+        if state then
+            spawn(function()
+                while tpwalking do
+                    local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                    local hrp = chr:FindFirstChild("HumanoidRootPart")
+                    local hum = chr:FindFirstChildWhichIsA("Humanoid")
+                    local delta = RunService.Heartbeat:Wait()
+                    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
+                        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * tpwalkSpeed * delta)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+Tab:Slider({
+    Title = "速度调节",
+    Value = {
+        Min = 0,
+        Max = 100,
+        Default = tpwalkSpeed,
+    },
+    Callback = function(value)
+        tpwalkSpeed = value
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+
+local NoclipEnabled = false
+local NoclipConnection
+
+local function setCharacterCollision(character, state)
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = state
+        end
+    end
+end
+
+local function enableNoclip()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    setCharacterCollision(character, false)
+
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+    end
+
+    NoclipConnection = RunService.Stepped:Connect(function()
+        if not NoclipEnabled then return end
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in ipairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableNoclip()
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+
+    local character = LocalPlayer.Character
+    if character then
+        setCharacterCollision(character, true)
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if NoclipEnabled then
+        task.wait(0.2)
+        enableNoclip()
+    end
+end)
+
+Tab:Toggle({
+    Title = "穿墙",
+    Value = false,
+    Callback = function(state)
+        NoclipEnabled = state
+        if state then
+            enableNoclip()
+        else
+            disableNoclip()
+        end
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+Tab:Button({
+    Title = "删除雾",
+    Callback = function()
+        local sky = game:GetService("Lighting"):FindFirstChildOfClass("Sky")
+        if sky then sky:Destroy() end
+    end,
+})
+
+Tab:Toggle({
+    Title = "地图高亮",
+    Value = false,
+    Callback = function(state)
+        local Lighting = game:GetService("Lighting")
+        if state then
+            Lighting.Brightness = 5
+            Lighting.Ambient = Color3.fromRGB(160, 160, 160)
+            Lighting.OutdoorAmbient = Color3.fromRGB(180, 180, 180)
+        else
+            Lighting.Brightness = 1
+            Lighting.Ambient = Color3.fromRGB(70, 70, 70)
+            Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+        end
+    end,
+})
+end
+local Tab = Window:Tab({  
+    Title = "游戏选择",  
+    Icon = "house",  
+    Locked = false,
+})
+Tab:Button({
+    Title = "王朝崩溃",
+    Callback = function()
+    wcbk()
+    end
+})
+Tab:Button({
+    Title = "控制",
+    Callback = function()
+    idkgame()
     end
 })
