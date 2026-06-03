@@ -782,16 +782,144 @@ task.spawn(function()
 end)
 
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 local auraState = false
+local visualState = false
+local soundState = false
+local handsForceFieldState = false
 local espState = false
+
+local tracerColor = Color3.fromRGB(0, 200, 255)
+local handsColor = Color3.fromRGB(0, 200, 255)
+
+local originalMaterials = {}
+local originalColors = {}
+local originalTransparencies = {}
+
+local fileName = "KanlHub_Colors.json"
+
+local function saveConfig()
+	local config = {
+		TracerColor = {tracerColor.R, tracerColor.G, tracerColor.B},
+		HandsColor = {handsColor.R, handsColor.G, handsColor.B}
+	}
+	pcall(function()
+		writefile(fileName, HttpService:JSONEncode(config))
+	end)
+end
+
+local function loadConfig()
+	if isfile and isfile(fileName) then
+		pcall(function()
+			local content = readfile(fileName)
+			local data = HttpService:JSONDecode(content)
+			if data.TracerColor then
+				tracerColor = Color3.new(data.TracerColor[1], data.TracerColor[2], data.TracerColor[3])
+			end
+			if data.HandsColor then
+				handsColor = Color3.new(data.HandsColor[1], data.HandsColor[2], data.HandsColor[3])
+			end
+		end)
+	end
+end
+
+loadConfig()
 
 Tab:Toggle({
     Title = "枪械光环",
     Value = false,
     Callback = function(state)
         auraState = state
+    end
+})
+
+Tab:Toggle({
+    Title = "枪械光环可视化",
+    Value = false,
+    Callback = function(state)
+        visualState = state
+    end
+})
+
+Tab:Toggle({
+    Title = "枪械光环打击音效",
+    Value = false,
+    Callback = function(state)
+        soundState = state
+    end
+})
+
+Tab:Toggle({
+    Title = "双手磁场化",
+    Value = false,
+    Callback = function(state)
+        handsForceFieldState = state
+    end
+})
+
+Tab:Colorpicker({  
+    Title = "自定义可视化线颜色",  
+    Default = tracerColor,  
+    Callback = function(color)  
+        tracerColor = color
+        saveConfig()
+    end  
+})  
+
+Tab:Colorpicker({  
+    Title = "自定义双手磁场颜色",  
+    Default = handsColor,  
+    Callback = function(color)  
+        handsColor = color
+        saveConfig()
+    end  
+})
+local function modifyWeaponStats(noRecoil, fastFire)
+    for _, obj in pairs(getgc(true)) do
+        if type(obj) == "table" and rawget(obj, "weapon_stats") then
+            local stats = obj.weapon_stats
+            if type(stats) == "table" and rawget(stats, "firerate") then
+                if noRecoil then
+                    stats.vertical_recoil = 0
+                    stats.horizontal_recoil = 0
+                else
+                    stats.vertical_recoil = 1
+                    stats.horizontal_recoil = 0.85
+                end
+                
+                if fastFire then
+                    stats.firerate = 5000
+                else
+                    stats.firerate = 800
+                end
+            end
+        end
+    end
+end
+
+local recoilState = false
+local fireRateState = false
+
+Tab:Toggle({
+    Title = "无后坐力",
+    Value = false,
+    Callback = function(state)
+        recoilState = state
+        modifyWeaponStats(recoilState, fireRateState)
+    end
+})
+
+Tab:Toggle({
+    Title = "超快射速",
+    Value = false,
+    Callback = function(state)
+        fireRateState = state
+        modifyWeaponStats(recoilState, fireRateState)
     end
 })
 
@@ -803,8 +931,132 @@ Tab:Toggle({
     end
 })
 
+local function playHitSound(part)
+	if not soundState or not part then return end
+	local sound = Instance.new("Sound")
+	sound.SoundId = "rbxassetid://5633695679"
+	sound.Volume = 1
+	sound.PlayOnRemove = true
+	sound.Parent = part
+	sound:Destroy()
+end
+
+local function drawTracer(startPos, endPos)
+	if not visualState then return end
+	
+	local part = Instance.new("Part")
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.Transparency = 1
+	
+	local distance = (startPos - endPos).Magnitude
+	part.Size = Vector3.new(0.01, 0.01, distance)
+	part.CFrame = CFrame.lookAt(startPos, endPos) * CFrame.new(0, 0, -distance / 2)
+	
+	local attachment0 = Instance.new("Attachment", part)
+	attachment0.Position = Vector3.new(0, 0, distance / 2)
+	local attachment1 = Instance.new("Attachment", part)
+	attachment1.Position = Vector3.new(0, 0, -distance / 2)
+	
+	local beam = Instance.new("Beam")
+	beam.Texture = "rbxassetid://446111271"
+	beam.TextureSpeed = 5
+	beam.Width0 = 0.6
+	beam.Width1 = 0.6
+	beam.FaceCamera = true
+	beam.LightEmission = 1
+	beam.LightInfluence = 0
+	
+	beam.Color = ColorSequence.new(tracerColor)
+	beam.Attachment0 = attachment0
+	beam.Attachment1 = attachment1
+	beam.Parent = part
+	
+	part.Parent = workspace
+	
+	task.spawn(function()
+		task.wait(2)
+		local tween = TweenService:Create(beam, TweenInfo.new(0.5, Enum.EasingStyle.Linear), {Width0 = 0, Width1 = 0})
+		tween:Play()
+		tween.Completed:Wait()
+		part:Destroy()
+	end)
+end
+
+local function getMuzzlePosition()
+	local camera = workspace.CurrentCamera
+	if camera then
+		local viewmodel = camera:FindFirstChild("Viewmodel")
+		local equipped = viewmodel and viewmodel:FindFirstChild("Equipped")
+		local weaponModel = equipped and equipped:FindFirstChild("WeaponModel")
+		if weaponModel then
+			local attachNodes = weaponModel:FindFirstChild("AttachmentNodes")
+			if attachNodes then
+				local muzzle = attachNodes:FindFirstChild("muzzle")
+				if muzzle and muzzle:IsA("BasePart") then
+					return muzzle.Position
+				end
+			end
+			local equippedAttachments = weaponModel:FindFirstChild("EquippedAttachments")
+			if equippedAttachments then
+				for _, child in ipairs(equippedAttachments:GetChildren()) do
+					if child.Name:match("barrel") or child.Name:match("muzzle") or child.Name:match("Muzzle") then
+						return child.Position
+					end
+				end
+			end
+			local fallback = weaponModel:FindFirstChild("muzzle") or weaponModel:FindFirstChild("Muzzle") or weaponModel:FindFirstChild("Tip") or weaponModel:FindFirstChild("Handle") or weaponModel:FindFirstChildOfClass("Part")
+			if fallback and fallback:IsA("BasePart") then
+				return fallback.Position
+			end
+		end
+	end
+	local character = LocalPlayer.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	return root and root.Position
+end
+
+local function checkIsGun()
+	local camera = workspace.CurrentCamera
+	if camera then
+		local viewmodel = camera:FindFirstChild("Viewmodel")
+		local equipped = viewmodel and viewmodel:FindFirstChild("Equipped")
+		local weaponModel = equipped and equipped:FindFirstChild("WeaponModel")
+		if weaponModel then
+			local animNodes = weaponModel:FindFirstChild("AnimationNodes")
+			local attachNodes = weaponModel:FindFirstChild("AttachmentNodes")
+			
+			local hasAnimChildren = animNodes and #animNodes:GetChildren() > 0
+			local hasAttachChildren = attachNodes and #attachNodes:GetChildren() > 0
+			
+			if hasAnimChildren or hasAttachChildren then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 local function damagePrimary(target, head)
-	local primary = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("primary")
+	local character = LocalPlayer.Character
+	if not character then return end
+	
+	local currentTool = character:FindFirstChildOfClass("Tool")
+	if currentTool and currentTool.Name == "melee" then
+		return
+	end
+	
+	if not checkIsGun() then
+		return
+	end
+	
+	local primary = character:FindFirstChild("primary")
+	if not primary and currentTool and currentTool.Name ~= "melee" then
+		primary = currentTool
+	end
+	
 	if primary then
 		local events = primary:FindFirstChild("ServerEvents")
 		local registerHit = events and events:FindFirstChild("RegisterHit")
@@ -822,6 +1074,12 @@ local function damagePrimary(target, head)
 				{}
 			}
 			registerHit:FireServer(unpack(args))
+			
+			local muzzlePos = getMuzzlePosition()
+			if muzzlePos and head then
+				drawTracer(muzzlePos, head.Position)
+				playHitSound(head)
+			end
 		end
 	end
 end
@@ -858,6 +1116,61 @@ local function scan(folder)
 	end
 end
 
+local function applyForceField(instance)
+	if instance:IsA("BasePart") then
+		if not originalMaterials[instance] then
+			originalMaterials[instance] = instance.Material
+			originalColors[instance] = instance.Color
+			originalTransparencies[instance] = instance.Transparency
+		end
+		instance.Material = Enum.Material.ForceField
+		instance.Color = handsColor
+		if instance.Transparency > 0.3 then
+			instance.Transparency = 0.3
+		end
+	end
+	for _, child in ipairs(instance:GetChildren()) do
+		applyForceField(child)
+	end
+end
+
+local function restoreOriginal(instance)
+	if instance:IsA("BasePart") then
+		if originalMaterials[instance] then
+			instance.Material = originalMaterials[instance]
+			instance.Color = originalColors[instance]
+			instance.Transparency = originalTransparencies[instance]
+			originalMaterials[instance] = nil
+			originalColors[instance] = nil
+			originalTransparencies[instance] = nil
+		end
+	end
+	for _, child in ipairs(instance:GetChildren()) do
+		restoreOriginal(child)
+	end
+end
+
+RunService.RenderStepped:Connect(function()
+	local camera = workspace.CurrentCamera
+	if not camera then return end
+	local viewmodel = camera:FindFirstChild("Viewmodel")
+	if not viewmodel then return end
+	
+	local hands = viewmodel:FindFirstChild("Hands")
+	if hands then
+		local leftArm = hands:FindFirstChild("Left Arm")
+		local rightArm = hands:FindFirstChild("Right Arm")
+		
+		if handsForceFieldState then
+			if leftArm then applyForceField(leftArm) end
+			if rightArm then applyForceField(rightArm) end
+		else
+			if leftArm then restoreOriginal(leftArm) end
+			if rightArm then restoreOriginal(rightArm) end
+		end
+	end
+end)
+
 task.spawn(function()
 	while task.wait(0.1) do
 		pcall(function()
@@ -873,6 +1186,7 @@ task.spawn(function()
 		end)
 	end
 end)
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
