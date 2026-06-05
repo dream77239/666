@@ -708,8 +708,8 @@ end
 local function wcbk()
 Window:Divider()
 local Tab = Window:Tab({  
-    Title = "功能",  
-    Icon = "house",  
+    Title = "攻击/美化",  
+    Icon = "hand-fist",  
     Locked = false,
 })
 local Players = game:GetService("Players")
@@ -853,15 +853,6 @@ Tab:Toggle({
         soundState = state
     end
 })
-
-Tab:Toggle({
-    Title = "双手磁场化",
-    Value = false,
-    Callback = function(state)
-        handsForceFieldState = state
-    end
-})
-
 Tab:Colorpicker({  
     Title = "自定义可视化线颜色",  
     Default = tracerColor,  
@@ -870,7 +861,13 @@ Tab:Colorpicker({
         saveConfig()
     end  
 })  
-
+Tab:Toggle({
+    Title = "双手磁场化",
+    Value = false,
+    Callback = function(state)
+        handsForceFieldState = state
+    end
+})
 Tab:Colorpicker({  
     Title = "自定义双手磁场颜色",  
     Default = handsColor,  
@@ -878,6 +875,11 @@ Tab:Colorpicker({
         handsColor = color
         saveConfig()
     end  
+})
+local Tab = Window:Tab({  
+    Title = "枪械修改",  
+    Icon = "cog",  
+    Locked = false,
 })
 local function modifyWeaponStats(noRecoil, fastFire)
     for _, obj in pairs(getgc(true)) do
@@ -922,7 +924,11 @@ Tab:Toggle({
         modifyWeaponStats(recoilState, fireRateState)
     end
 })
-
+local Tab = Window:Tab({  
+    Title = "透视",  
+    Icon = "eye",  
+    Locked = false,
+})
 Tab:Toggle({
     Title = "透视僵尸",
     Value = false,
@@ -1235,6 +1241,11 @@ Tab:Toggle({
             end
         end
     end
+})
+local Tab = Window:Tab({  
+    Title = "实用功能",  
+    Icon = "hammer",  
+    Locked = false,
 })
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -1726,6 +1737,52 @@ local Tab = Window:Tab({
     Icon = "house",  
     Locked = false,
 })
+local file_name = "game_detector_config.json"
+local auto_load = false
+
+repeat task.wait() until game:IsLoaded()
+
+if isfile and isfile(file_name) then
+    local content = readfile(file_name)
+    if content == "true" then
+        auto_load = true
+    elseif content == "false" then
+        auto_load = false
+    end
+end
+local game_functions = {
+    [76158294956631] = idkgame,
+    [11765763028] = wcbk,
+    [15367709476] = lakufu
+}
+
+local function check_game()
+    if auto_load then
+        local func = game_functions[game.PlaceId]
+        if func then
+            task.spawn(func)
+        end
+    end
+end
+
+Tab:Toggle({
+    Title = "自动加载对应游戏功能",
+    Value = auto_load,
+    Callback = function(state)
+        auto_load = state
+        if writefile then
+            writefile(file_name, tostring(state))
+        end
+        if state then
+            check_game()
+        end
+    end
+})
+
+if auto_load then
+    check_game()
+end
+
 Tab:Button({
     Title = "王朝崩溃",
     Callback = function()
