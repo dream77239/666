@@ -1374,6 +1374,353 @@ Tab:Toggle({
     end,
 })
 end
+local function lakufu()
+Window:Divider()
+local Tab = Window:Tab({  
+    Title = "功能",  
+    Icon = "house",  
+    Locked = false,
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local tpwalking = false
+local tpwalkSpeed = 5
+
+Tab:Toggle({
+    Title = "速度",
+    Value = false,
+    Callback = function(state)
+        tpwalking = state
+        if state then
+            spawn(function()
+                while tpwalking do
+                    local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                    local hrp = chr:FindFirstChild("HumanoidRootPart")
+                    local hum = chr:FindFirstChildWhichIsA("Humanoid")
+                    local delta = RunService.Heartbeat:Wait()
+                    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
+                        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * tpwalkSpeed * delta)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+Tab:Slider({
+    Title = "速度调节",
+    Desc = "最大35，反正我试了速度调35不会拉回",
+    Value = {
+        Min = 0,
+        Max = 35,
+        Default = tpwalkSpeed,
+    },
+    Callback = function(value)
+        tpwalkSpeed = value
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+Tab:Button({
+    Title = "删除雾",
+    Callback = function()
+        local sky = game:GetService("Lighting"):FindFirstChildOfClass("Sky")
+        if sky then sky:Destroy() end
+    end,
+})
+
+Tab:Toggle({
+    Title = "地图高亮",
+    Value = false,
+    Callback = function(state)
+        local Lighting = game:GetService("Lighting")
+        if state then
+            Lighting.Brightness = 5
+            Lighting.Ambient = Color3.fromRGB(160, 160, 160)
+            Lighting.OutdoorAmbient = Color3.fromRGB(180, 180, 180)
+        else
+            Lighting.Brightness = 1
+            Lighting.Ambient = Color3.fromRGB(70, 70, 70)
+            Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+        end
+    end,
+})
+local Tab = Window:Tab({  
+    Title = "透视",  
+    Icon = "eye",  
+    Locked = false,
+})
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+
+local PlayerESP_State = false
+local PlayerNameESP_State = false
+local PlayerDistESP_State = false
+
+local MobESP_State = false
+local MobDistESP_State = false
+
+local BuildESP_State = false
+local BuildDistESP_State = false
+
+local ClosetESP_State = false
+local ClosetDistESP_State = false
+
+local Storage = Instance.new("Folder")
+Storage.Name = "ESP_Storage"
+Storage.Parent = RunService:IsStudio() and LocalPlayer:WaitForChild("PlayerGui") or CoreGui
+
+local buildings = {
+    {name = "发电站", pos = Vector3.new(340.74, 9.31, 262.11)},
+    {name = "靶场", pos = Vector3.new(-279.61, 5.81, 210.13)},
+    {name = "商店", pos = Vector3.new(-281.55, 5.20, -386.24)},
+    {name = "公园", pos = Vector3.new(180.70, 49.00, -187.42)},
+    {name = "地下的房子", pos = Vector3.new(453.78, -15.85, -136.61)},
+    {name = "垃圾站", pos = Vector3.new(337.21, 16.80, -1.32)}
+}
+
+local function ApplyHighlight(obj, color)
+    local hl = obj:FindFirstChildOfClass("Highlight")
+    if not hl then
+        hl = Instance.new("Highlight")
+        hl.FillTransparency = 1
+        hl.OutlineTransparency = 0
+        hl.Parent = obj
+    end
+    hl.OutlineColor = color
+end
+
+local function RemoveHighlight(obj)
+    local hl = obj:FindFirstChildOfClass("Highlight")
+    if hl then hl:Destroy() end
+end
+
+local function ApplyBillboard(obj, text, color, offset)
+    local bb = obj:FindFirstChildOfClass("BillboardGui")
+    if not bb then
+        bb = Instance.new("BillboardGui")
+        bb.AlwaysOnTop = true
+        bb.Size = UDim2.new(0, 150, 0, 40)
+        bb.StudsOffset = offset or Vector3.new(0, 3, 0)
+        
+        local tl = Instance.new("TextLabel")
+        tl.Size = UDim2.new(1, 0, 1, 0)
+        tl.BackgroundTransparency = 1
+        tl.Font = Enum.Font.SourceSansBold
+        tl.TextSize = 14
+        tl.TextStrokeTransparency = 0.5
+        tl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        tl.Parent = bb
+        
+        bb.Parent = obj
+    end
+    bb.TextLabel.Text = text
+    bb.TextLabel.TextColor3 = color
+end
+
+local function RemoveBillboard(obj)
+    local bb = obj:FindFirstChildOfClass("BillboardGui")
+    if bb then bb:Destroy() end
+end
+
+for _, bData in ipairs(buildings) do
+    local p = Instance.new("Part")
+    p.Size = Vector3.new(1, 1, 1)
+    p.Position = bData.pos
+    p.Anchored = true
+    p.CanCollide = false
+    p.Transparency = 1
+    p.Parent = Storage
+end
+
+Tab:Toggle({
+    Title = "玩家透视",
+    Value = false,
+    Callback = function(state)
+        PlayerESP_State = state
+    end
+})
+
+Tab:Toggle({
+    Title = "显示玩家名字",
+    Value = false,
+    Callback = function(state)
+        PlayerNameESP_State = state
+    end
+})
+
+Tab:Toggle({
+    Title = "显示玩家距离",
+    Value = false,
+    Callback = function(state)
+        PlayerDistESP_State = state
+    end
+})
+
+Tab:Toggle({
+    Title = "怪物透视",
+    Value = false,
+    Callback = function(state)
+        MobESP_State = state
+    end
+})
+
+Tab:Toggle({
+    Title = "显示怪物距离",
+    Value = false,
+    Callback = function(state)
+        MobDistESP_State = state
+    end
+})
+
+Tab:Toggle({
+    Title = "建筑透视",
+    Value = false,
+    Callback = function(state)
+        BuildESP_State = state
+    end
+})
+
+Tab:Toggle({
+    Title = "显示建筑距离",
+    Value = false,
+    Callback = function(state)
+        BuildDistESP_State = state
+    end
+})
+
+Tab:Toggle({
+    Title = "柜子透视",
+    Value = false,
+    Callback = function(state)
+        ClosetESP_State = state
+    end
+})
+
+Tab:Toggle({
+    Title = "显示柜子距离",
+    Value = false,
+    Callback = function(state)
+        ClosetDistESP_State = state
+    end
+})
+
+RunService.RenderStepped:Connect(function()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    
+    if PlayerESP_State then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                ApplyHighlight(p.Character, Color3.fromRGB(0, 255, 0))
+                
+                local dispText = ""
+                if PlayerNameESP_State then
+                    dispText = p.DisplayName
+                end
+                if PlayerDistESP_State then
+                    local dist = hrp and math.round((hrp.Position - p.Character.HumanoidRootPart.Position).Magnitude) or 0
+                    if dispText ~= "" then
+                        dispText = dispText .. " [" .. tostring(dist) .. "m]"
+                    else
+                        dispText = "[" .. tostring(dist) .. "m]"
+                    end
+                end
+                
+                if dispText ~= "" then
+                    ApplyBillboard(p.Character.HumanoidRootPart, dispText, Color3.fromRGB(0, 255, 0))
+                else
+                    RemoveBillboard(p.Character.HumanoidRootPart)
+                end
+            end
+        end
+    else
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p.Character then
+                RemoveHighlight(p.Character)
+                if p.Character:FindFirstChild("HumanoidRootPart") then
+                    RemoveBillboard(p.Character.HumanoidRootPart)
+                end
+            end
+        end
+    end
+    
+    local targetMob = workspace:FindFirstChild("RakoofNPC")
+    if MobESP_State and targetMob then
+        ApplyHighlight(targetMob, Color3.fromRGB(255, 0, 0))
+        local mobHrp = targetMob:IsA("Model") and (targetMob:FindFirstChild("HumanoidRootPart") or targetMob:FindFirstChildWhichIsA("BasePart")) or (targetMob:IsA("BasePart") and targetMob)
+        
+        if mobHrp then
+            local dispText = "RakoofNPC"
+            if MobDistESP_State then
+                local dist = hrp and math.round((hrp.Position - mobHrp.Position).Magnitude) or 0
+                dispText = dispText .. " [" .. tostring(dist) .. "m]"
+            end
+            ApplyBillboard(mobHrp, dispText, Color3.fromRGB(255, 0, 0))
+        end
+    elseif targetMob then
+        RemoveHighlight(targetMob)
+        RemoveBillboard(targetMob)
+        for _, child in ipairs(targetMob:GetChildren()) do
+            RemoveHighlight(child)
+            RemoveBillboard(child)
+        end
+    end
+    
+    if BuildESP_State then
+        for i, bp in ipairs(Storage:GetChildren()) do
+            local bData = buildings[i]
+            if bData then
+                local dispText = bData.name
+                if BuildDistESP_State then
+                    local dist = hrp and math.round((hrp.Position - bp.Position).Magnitude) or 0
+                    dispText = dispText .. " [" .. tostring(dist) .. "m]"
+                end
+                ApplyBillboard(bp, dispText, Color3.fromRGB(0, 150, 255), Vector3.new(0, 0, 0))
+            end
+        end
+    else
+        for _, bp in ipairs(Storage:GetChildren()) do
+            RemoveBillboard(bp)
+        end
+    end
+    
+    local filter = workspace:FindFirstChild("Filter")
+    local closets = filter and filter:FindFirstChild("Closets")
+    if ClosetESP_State and closets then
+        for _, c in ipairs(closets:GetChildren()) do
+            if c:IsA("Model") or c:IsA("BasePart") then
+                ApplyHighlight(c, Color3.fromRGB(180, 0, 255))
+                local cPart = c:IsA("Model") and (c:FindFirstChild("HumanoidRootPart") or c:FindFirstChildWhichIsA("BasePart")) or c
+                if cPart then
+                    local dispText = "柜子"
+                    if ClosetDistESP_State then
+                        local dist = hrp and math.round((hrp.Position - cPart.Position).Magnitude) or 0
+                        dispText = dispText .. " [" .. tostring(dist) .. "m]"
+                    end
+                    ApplyBillboard(cPart, dispText, Color3.fromRGB(180, 0, 255))
+                end
+            end
+        end
+    elseif closets then
+        for _, c in ipairs(closets:GetChildren()) do
+            RemoveHighlight(c)
+            local cPart = c:IsA("Model") and (c:FindFirstChild("HumanoidRootPart") or c:FindFirstChildWhichIsA("BasePart")) or c
+            if cPart then
+                RemoveBillboard(cPart)
+            end
+        end
+    end
+end)
+
+end
 local Tab = Window:Tab({  
     Title = "游戏选择",  
     Icon = "house",  
@@ -1389,5 +1736,11 @@ Tab:Button({
     Title = "控制",
     Callback = function()
     idkgame()
+    end
+})
+Tab:Button({
+    Title = "拉库夫",
+    Callback = function()
+    lakufu()
     end
 })
