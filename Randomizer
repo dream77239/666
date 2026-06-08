@@ -1024,7 +1024,7 @@ local function getCurrentWeapon()
 end
 
 local function getWeaponFireRate(weapon)
-    local folder = workspace:FindFirstChild("RocketHawkFlash_YT")
+    local folder = workspace:FindFirstChild(LocalPlayer.Name)
     if folder then
         local targetGunModel = nil
         local weaponCleanName = weapon.Name:gsub("%s+", ""):lower()
@@ -1074,6 +1074,27 @@ local function getWeaponFireRate(weapon)
                         end
                     end
                 end
+                
+                local s, fields = pcall(getgc)
+                if s and type(fields) == "table" then
+                    for _, v in pairs(fields) do
+                        if type(v) == "table" then
+                            local rawFR = rawget(v, "FireRate") or rawget(v, "fireRate") or rawget(v, "FIRERATE")
+                            if type(rawFR) == "number" then
+                                return rawFR
+                            end
+                            local rawFRs = rawget(v, "FireRates") or rawget(v, "fireRates")
+                            if type(rawFRs) == "table" and type(rawFRs[1]) == "number" then
+                                return rawFRs[1]
+                            end
+                            for key, val in pairs(v) do
+                                if type(key) == "string" and key:lower():find("firerate") and type(val) == "number" then
+                                    return val
+                                end
+                            end
+                        end
+                    end
+                end
             end
         end
     end
@@ -1094,6 +1115,20 @@ local function getWeaponFireRate(weapon)
             end
         end
     end
+
+    local s, fields = pcall(getgc)
+    if s and type(fields) == "table" then
+        for _, v in pairs(fields) do
+            if type(v) == "table" then
+                for key, val in pairs(v) do
+                    if type(key) == "string" and key:lower():find("firerate") and type(val) == "number" then
+                        return val
+                    end
+                end
+            end
+        end
+    end
+
     return nil
 end
 
@@ -1164,7 +1199,7 @@ local function createLaserBeam(fromPos, toPos)
 end
 
 local function getDynamicBarrel(weaponName)
-    local folder = workspace:FindFirstChild("RocketHawkFlash_YT")
+    local folder = workspace:FindFirstChild(LocalPlayer.Name)
     if not folder then return nil end
     local gunModel = folder:FindFirstChild(weaponName)
     if gunModel then
@@ -1261,7 +1296,7 @@ local function checkWall(fromPos, toPos, targetChar)
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Exclude
     
-    local ignoreList = {LocalPlayer.Character, workspace:FindFirstChild("RocketHawkFlash_YT"), cam, workspace.CurrentCamera}
+    local ignoreList = {LocalPlayer.Character, workspace:FindFirstChild(LocalPlayer.Name), cam, workspace.CurrentCamera}
     raycastParams.FilterDescendantsInstances = ignoreList
     raycastParams.IgnoreWater = true
     
@@ -1403,7 +1438,7 @@ task.spawn(function()
             continue
         end
         
-        task.wait(math.max(delayTime, 0.01))
+        task.wait(delayTime)
 
         if not config.auraEnabled then 
             updateHUD(nil)
@@ -1500,7 +1535,7 @@ task.spawn(function()
                     local currentTime = os.clock()
                     local argsA = {
                         currentTime,
-                        currentTime - (delayTime * 0.9),
+                        currentTime - delayTime,
                         currentMyPos,
                         closestTarget.head,
                         currentTargetPos,
@@ -1532,6 +1567,7 @@ task.spawn(function()
         end
     end
 end)
+
 Tab:Section({
     Title = "silent aim",
     TextXAlignment = "Left",
