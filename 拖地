@@ -1,0 +1,409 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+
+local spillsFolder = workspace:WaitForChild("Ignored"):WaitForChild("Spills")
+local animId = "rbxassetid://180426354"
+local currentTrack = nil
+local scriptRunning = false
+local mainThread = nil
+
+local function checkMop()
+	local character = LocalPlayer.Character
+	if not character then return false end
+	if character:FindFirstChild("Mop") then return true end
+	local backpack = LocalPlayer:FindFirstChild("Backpack")
+	if backpack and backpack:FindFirstChild("Mop") then return true end
+	return false
+end
+
+local function showWarningNotification()
+	if CoreGui:FindFirstChild("MopWarningGui") then return end
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "MopWarningGui"
+	screenGui.ResetOnSpawn = false
+	local success, _ = pcall(function() screenGui.Parent = CoreGui end)
+	if not success then screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(0, 240, 0, 40)
+	frame.Position = UDim2.new(0.5, -120, 0, -50)
+	frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	frame.BorderSizePixel = 0
+	frame.BackgroundTransparency = 0.1
+	frame.Parent = screenGui
+
+	local uiCorner = Instance.new("UICorner")
+	uiCorner.CornerRadius = UDim.new(0, 8)
+	uiCorner.Parent = frame
+
+	local uiStroke = Instance.new("UIStroke")
+	uiStroke.Color = Color3.fromRGB(255, 75, 75)
+	uiStroke.Thickness = 1.5
+	uiStroke.Parent = frame
+
+	local textLabel = Instance.new("TextLabel")
+	textLabel.Size = UDim2.new(1, 0, 1, 0)
+	textLabel.BackgroundTransparency = 1
+	textLabel.Text = "请你先拿拖把再运行功能"
+	textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	textLabel.Font = Enum.Font.GothamBold
+	textLabel.TextSize = 13
+	textLabel.Parent = frame
+
+	local fadeIn = TweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Back), {Position = UDim2.new(0.5, -120, 0, 30)})
+	fadeIn:Play()
+
+	task.delay(3, function()
+		local fadeOutInfo = TweenInfo.new(0.4, Enum.EasingStyle.Linear)
+		local fadeOutFrame = TweenService:Create(frame, fadeOutInfo, {Position = UDim2.new(0.5, -120, 0, -50), BackgroundTransparency = 1})
+		local fadeOutText = TweenService:Create(textLabel, fadeOutInfo, {TextTransparency = 1})
+		local fadeOutStroke = TweenService:Create(uiStroke, fadeOutInfo, {Transparency = 1})
+		fadeOutFrame:Play()
+		fadeOutText:Play()
+		fadeOutStroke:Play()
+		fadeOutFrame.Completed:Connect(function() screenGui:Destroy() end)
+	end)
+end
+
+local function getClosestSpill()
+	local character = LocalPlayer.Character
+	if not character then return nil end
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	if not rootPart then return nil end
+	local spills = spillsFolder:GetChildren()
+	local closestSpill = nil
+	local shortestDistance = math.huge
+	for _, spill in ipairs(spills) do
+		local targetPos = spill:IsA("Model") and spill:GetPivot().Position or (spill:IsA("BasePart") and spill.Position)
+		if targetPos then
+			local distance = (rootPart.Position - targetPos).Magnitude
+			if distance < shortestDistance then
+				shortestDistance = distance
+				closestSpill = spill
+			end
+		end
+	end
+	for _, spill in ipairs(spills) do
+		if spill ~= closestSpill then spill:SetAttribute("CurrentTarget", nil) end
+	end
+	return closestSpill
+end
+
+local function playMoveAnimation(humanoid)
+	if not currentTrack then
+		local animation = Instance.new("Animation")
+		animation.AnimationId = animId
+		currentTrack = humanoid:LoadAnimation(animation)
+		currentTrack.Looped = true
+		currentTrack:Play()
+	end
+end
+
+local function stopMoveAnimation()
+	if currentTrack then
+		currentTrack:Stop()
+		currentTrack = nil
+	end
+end
+
+local function checkObstacle(startPos, endPos, character)
+	local raycastParams = RaycastParams.new()
+	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+	raycastParams.FilterDescendantsInstances = {character, spillsFolder, workspace.CurrentCamera}
+	return workspace:Raycast(startPos, endPos - startPos, raycastParams)
+end
+
+local function smoothTurnTo(rootPart, lookAtTarget)
+	local targetLookCFrame = CFrame.lookAt(rootPart.Position, Vector3.new(lookAtTarget.X, rootPart.Position.Y, lookAtTarget.Z))
+	local startCFrame = rootPart.CFrame
+	local dotProduct = rootPart.CFrame.LookVector:Dot((Vector3.new(lookAtTarget.X, rootPart.Position.Y, lookAtTarget.Z) - rootPart.Position).Unit)
+	if dotProduct < 0.99 then
+		local t = 0
+		while t < 1 do
+			t = t + task.wait() * 5
+			rootPart.CFrame = startCFrame:Lerp(targetLookCFrame, math.min(t, 1))
+		end
+	end
+end
+
+local function doTween(rootPart, destination)
+	local distance = (destination - rootPart.Position).Magnitude
+	if distance < 0.5 then return true end
+	local humanoid = rootPart.Parent:FindFirstChild("Humanoid")
+	local speed = (humanoid and humanoid.WalkSpeed > 0) and humanoid.WalkSpeed or 16
+	local duration = distance / speed
+	local raycastParams = RaycastParams.new()
+	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+	raycastParams.FilterDescendantsInstances = {rootPart.Parent, spillsFolder, workspace.CurrentCamera}
+	smoothTurnTo(rootPart, destination)
+	local currentRotation = rootPart.CFrame.Rotation
+	local tween = TweenService:Create(rootPart, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = CFrame.new(destination) * currentRotation})
+	local completed = false
+	local connection
+	connection = tween.Completed:Connect(function() completed = true connection:Disconnect() end)
+	if humanoid then playMoveAnimation(humanoid) end
+	tween:Play()
+	while not completed do
+		if not scriptRunning or not rootPart or not rootPart.Parent then
+			tween:Cancel()
+			if connection then connection:Disconnect() end
+			stopMoveAnimation()
+			return false
+		end
+		if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Running) end
+		local currentPos = rootPart.Position
+		local groundRay = workspace:Raycast(currentPos + Vector3.new(0, 2, 0), Vector3.new(0, -15, 0), raycastParams)
+		local currentY = currentPos.Y
+		if groundRay then currentY = groundRay.Position.Y + 3 end
+		local lookAtTarget = Vector3.new(destination.X, currentY, destination.Z)
+		if (lookAtTarget - currentPos).Magnitude > 0.2 then
+			rootPart.CFrame = CFrame.lookAt(Vector3.new(currentPos.X, currentY, currentPos.Z), lookAtTarget)
+		else
+			rootPart.CFrame = CFrame.new(currentPos.X, currentY, currentPos.Z) * rootPart.CFrame.Rotation
+		end
+		task.wait()
+	end
+	return true
+end
+
+local function tweenMoveWithAvoidance(character, targetInstance)
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	if not rootPart then return false end
+	local targetPos = targetInstance:IsA("Model") and targetInstance:GetPivot().Position or targetInstance.Position
+	local destination = targetPos + Vector3.new(0, 3, 0)
+	local maxAttempts = 3
+	local attempts = 0
+	while attempts < maxAttempts do
+		local currentPos = rootPart.Position
+		local hit = checkObstacle(currentPos, destination, character)
+		if not hit then break end
+		attempts = attempts + 1
+		local direction = (destination - currentPos).Unit
+		local leftDir = CFrame.Angles(0, math.rad(55), 0) * direction
+		local rightDir = CFrame.Angles(0, math.rad(-55), 0) * direction
+		local bypassDistance = 7
+		local leftPoint = Vector3.new(currentPos.X + (leftDir.X * bypassDistance), currentPos.Y, currentPos.Z + (leftDir.Z * bypassDistance))
+		local rightPoint = Vector3.new(currentPos.X + (rightDir.X * bypassDistance), currentPos.Y, currentPos.Z + (rightDir.Z * bypassDistance))
+		local leftHit = checkObstacle(currentPos, leftPoint, character)
+		local rightHit = checkObstacle(currentPos, rightPoint, character)
+		local bypassPoint = nil
+		if not leftHit then bypassPoint = leftPoint elseif not rightHit then bypassPoint = rightPoint else bypassPoint = currentPos + Vector3.new(0, 5, 0) end
+		if bypassPoint then
+			local success = doTween(rootPart, bypassPoint)
+			if not success then return false end
+		end
+	end
+	local finalSuccess = doTween(rootPart, destination)
+	stopMoveAnimation()
+	return finalSuccess
+end
+
+local function interactWithPrompt(targetInstance)
+	local prompt = targetInstance:FindFirstChildWhichIsA("ProximityPrompt", true)
+	if prompt then
+		fireproximityprompt(prompt)
+		task.wait(prompt.HoldDuration + 0.1)
+	end
+end
+
+local function runLoop()
+	while scriptRunning and task.wait(0.1) do
+		if not checkMop() then
+			scriptRunning = false
+			stopMoveAnimation()
+			showWarningNotification()
+			break
+		end
+		local character = LocalPlayer.Character
+		if character and character:FindFirstChild("HumanoidRootPart") then
+			local targetSpill = getClosestSpill()
+			if targetSpill and targetSpill:GetAttribute("CurrentTarget") ~= true then
+				targetSpill:SetAttribute("CurrentTarget", true)
+				local arrived = tweenMoveWithAvoidance(character, targetSpill)
+				if arrived and scriptRunning then
+					local rootPart = character:FindFirstChild("HumanoidRootPart")
+					local targetPos = targetSpill:IsA("Model") and targetSpill:GetPivot().Position or targetSpill.Position
+					if rootPart and (rootPart.Position - targetPos).Magnitude < 7 then
+						interactWithPrompt(targetSpill)
+					end
+				end
+				targetSpill:SetAttribute("CurrentTarget", nil)
+				stopMoveAnimation()
+			end
+		end
+	end
+end
+
+local function toggleScript(state)
+	if state then
+		if not checkMop() then
+			showWarningNotification()
+			return false
+		end
+		scriptRunning = true
+		mainThread = task.spawn(runLoop)
+		return true
+	else
+		scriptRunning = false
+		if mainThread then
+			pcall(function() task.cancel(mainThread) end)
+			mainThread = nil
+		end
+		stopMoveAnimation()
+		return false
+	end
+end
+
+local uiContainer = Instance.new("ScreenGui")
+uiContainer.Name = "KanlHubMiniWindow"
+uiContainer.ResetOnSpawn = false
+local uiSuccess, _ = pcall(function() uiContainer.Parent = CoreGui end)
+if not uiSuccess then uiContainer.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 160, 0, 120)
+mainFrame.Position = UDim2.new(0.5, -80, 0.4, -60)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Parent = uiContainer
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 12)
+mainCorner.Parent = mainFrame
+
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Color = Color3.fromRGB(50, 50, 50)
+mainStroke.Thickness = 1.5
+mainStroke.Parent = mainFrame
+
+local dragArea = Instance.new("TextButton")
+dragArea.Size = UDim2.new(1, 0, 0, 38)
+dragArea.Position = UDim2.new(0, 0, 0, 0)
+dragArea.BackgroundTransparency = 1
+dragArea.Text = "  自动拖地"
+dragArea.TextColor3 = Color3.fromRGB(200, 200, 200)
+dragArea.Font = Enum.Font.GothamBold
+dragArea.TextSize = 13
+dragArea.TextXAlignment = Enum.TextXAlignment.Left
+dragArea.Parent = mainFrame
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 24, 0, 24)
+closeBtn.Position = UDim2.new(1, -28, 0, 7)
+closeBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+closeBtn.Text = "×"
+closeBtn.TextColor3 = Color3.fromRGB(240, 80, 80)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 16
+closeBtn.BorderSizePixel = 0
+closeBtn.Parent = mainFrame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 6)
+closeCorner.Parent = closeBtn
+
+local minBtn = Instance.new("TextButton")
+minBtn.Size = UDim2.new(0, 24, 0, 24)
+minBtn.Position = UDim2.new(1, -56, 0, 7)
+minBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+minBtn.Text = "-"
+minBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+minBtn.Font = Enum.Font.GothamBold
+minBtn.TextSize = 16
+minBtn.BorderSizePixel = 0
+minBtn.Parent = mainFrame
+
+local minCorner = Instance.new("UICorner")
+minCorner.CornerRadius = UDim.new(0, 6)
+minCorner.Parent = minBtn
+
+local contentFrame = Instance.new("Frame")
+contentFrame.Size = UDim2.new(1, 0, 1, -38)
+contentFrame.Position = UDim2.new(0, 0, 0, 38)
+contentFrame.BackgroundTransparency = 1
+contentFrame.Parent = mainFrame
+
+local actionBtn = Instance.new("TextButton")
+actionBtn.Size = UDim2.new(0.85, 0, 0, 38)
+actionBtn.Position = UDim2.new(0.075, 0, 0.15, 0)
+actionBtn.BackgroundColor3 = Color3.fromRGB(40, 120, 75)
+actionBtn.Text = "开启功能"
+actionBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+actionBtn.Font = Enum.Font.GothamBold
+actionBtn.TextSize = 13
+actionBtn.BorderSizePixel = 0
+actionBtn.Parent = contentFrame
+
+local actionCorner = Instance.new("UICorner")
+actionCorner.CornerRadius = UDim.new(0, 8)
+actionCorner.Parent = actionBtn
+
+local isMinimized = false
+local originalSize = mainFrame.Size
+
+minBtn.MouseButton1Click:Connect(function()
+	isMinimized = not isMinimized
+	if isMinimized then
+		contentFrame.Visible = false
+		mainFrame.Size = UDim2.new(originalSize.X.Scale, originalSize.X.Offset, 0, 38)
+		minBtn.Text = "+"
+	else
+		mainFrame.Size = originalSize
+		contentFrame.Visible = true
+		minBtn.Text = "-"
+	end
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+	toggleScript(false)
+	uiContainer:Destroy()
+end)
+
+local isToggled = false
+actionBtn.MouseButton1Click:Connect(function()
+	if not isToggled then
+		local activated = toggleScript(true)
+		if activated then
+			isToggled = true
+			actionBtn.Text = "关闭功能"
+			actionBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+		end
+	else
+		toggleScript(false)
+		isToggled = false
+		actionBtn.Text = "开启功能"
+		actionBtn.BackgroundColor3 = Color3.fromRGB(40, 120, 75)
+	end
+end)
+
+local dragToggle = false
+local dragStart = nil
+local startPos = nil
+
+local function updateInput(input)
+	local delta = input.Position - dragStart
+	mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+dragArea.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragToggle = true
+		dragStart = input.Position
+		startPos = mainFrame.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragToggle = false
+			end
+		end)
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if dragToggle and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		updateInput(input)
+	end
+end)
