@@ -1732,6 +1732,617 @@ RunService.RenderStepped:Connect(function()
 end)
 
 end
+local function dbf()
+Window:Divider()
+local Tab = Window:Tab({  
+    Title = "实用功能",  
+    Icon = "hammer",  
+    Locked = false,
+})
+Tab:Button({
+    Title = "汉化飞行",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/fly/refs/heads/main/README.md"))()
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local tpwalking = false
+local tpwalkSpeed = 5
+
+Tab:Toggle({
+    Title = "速度",
+    Value = false,
+    Callback = function(state)
+        tpwalking = state
+        if state then
+            spawn(function()
+                while tpwalking do
+                    local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                    local hrp = chr:FindFirstChild("HumanoidRootPart")
+                    local hum = chr:FindFirstChildWhichIsA("Humanoid")
+                    local delta = RunService.Heartbeat:Wait()
+                    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
+                        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * tpwalkSpeed * delta)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+Tab:Slider({
+    Title = "速度调节",
+    Value = {
+        Min = 0,
+        Max = 100,
+        Default = tpwalkSpeed,
+    },
+    Callback = function(value)
+        tpwalkSpeed = value
+    end
+})
+local OriginalHoldTimes = {}
+local promptConnection
+local heartbeatConnection
+
+Tab:Toggle({
+    Title = "秒互动",
+    Value = false,
+    Callback = function(state)
+        if state then
+            for _, prompt in pairs(workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[prompt] then
+                        OriginalHoldTimes[prompt] = prompt.HoldDuration
+                    end
+                    prompt.HoldDuration = 0
+                end
+            end
+            promptConnection = workspace.DescendantAdded:Connect(function(obj)
+                if obj:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[obj] then
+                        OriginalHoldTimes[obj] = obj.HoldDuration
+                    end
+                    obj.HoldDuration = 0
+                end
+            end)
+            heartbeatConnection = RunService.Heartbeat:Connect(function()
+                for prompt, original in pairs(OriginalHoldTimes) do
+                    if prompt and prompt.Parent then
+                        prompt.HoldDuration = 0
+                    end
+                end
+            end)
+        else
+            if promptConnection then promptConnection:Disconnect() end
+            if heartbeatConnection then heartbeatConnection:Disconnect() end
+            for prompt, original in pairs(OriginalHoldTimes) do
+                if prompt and prompt.Parent then
+                    prompt.HoldDuration = original
+                end
+            end
+        end
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+
+local NoclipEnabled = false
+local NoclipConnection
+
+local function setCharacterCollision(character, state)
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = state
+        end
+    end
+end
+
+local function enableNoclip()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    setCharacterCollision(character, false)
+
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+    end
+
+    NoclipConnection = RunService.Stepped:Connect(function()
+        if not NoclipEnabled then return end
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in ipairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableNoclip()
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+
+    local character = LocalPlayer.Character
+    if character then
+        setCharacterCollision(character, true)
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if NoclipEnabled then
+        task.wait(0.2)
+        enableNoclip()
+    end
+end)
+
+Tab:Toggle({
+    Title = "穿墙",
+    Value = false,
+    Callback = function(state)
+        NoclipEnabled = state
+        if state then
+            enableNoclip()
+        else
+            disableNoclip()
+        end
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+Tab:Button({
+    Title = "删除雾",
+    Callback = function()
+        local sky = game:GetService("Lighting"):FindFirstChildOfClass("Sky")
+        if sky then sky:Destroy() end
+    end,
+})
+
+Tab:Toggle({
+    Title = "地图高亮",
+    Value = false,
+    Callback = function(state)
+        local Lighting = game:GetService("Lighting")
+        if state then
+            Lighting.Brightness = 5
+            Lighting.Ambient = Color3.fromRGB(160, 160, 160)
+            Lighting.OutdoorAmbient = Color3.fromRGB(180, 180, 180)
+        else
+            Lighting.Brightness = 1
+            Lighting.Ambient = Color3.fromRGB(70, 70, 70)
+            Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+        end
+    end,
+})
+local Tab = Window:Tab({  
+    Title = "透视",  
+    Icon = "eye",  
+    Locked = false,
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+
+local survivorEspEnabled = false
+local killerEspEnabled = false
+local genEspEnabled = false
+local survivorDistanceEnabled = false
+local killerDistanceEnabled = false
+local genDistanceEnabled = false
+
+local connections = {}
+local espObjects = {}
+local lastUpdate = 0
+local UPDATE_INTERVAL = 0.1
+
+local function createESP(instance, color, folderType)
+    if not instance then return end
+    if folderType ~= "generator" and not instance:IsA("Model") then return end
+    if instance.Name == localPlayer.Name then return end
+
+    local hrp = instance:IsA("Model") and instance:FindFirstChild("HumanoidRootPart") or instance:IsA("BasePart") and instance or instance:FindFirstChildWhichIsA("BasePart")
+    if not hrp then return end
+
+    local cache = espObjects[instance]
+    if cache then
+        if cache.Highlight and cache.Highlight.Parent == instance then
+            cache.Highlight.OutlineColor = color
+            cache.Highlight.Enabled = true
+        else
+            if cache.Highlight then cache.Highlight:Destroy() end
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "ESPHighlight"
+            highlight.FillTransparency = 1
+            highlight.OutlineColor = color
+            highlight.OutlineTransparency = 0
+            highlight.Adornee = instance
+            highlight.Parent = instance
+            cache.Highlight = highlight
+        end
+        
+        if cache.Billboard and cache.Billboard.Parent == hrp then
+            cache.TextLabel.TextColor3 = color
+            cache.TextLabel.Visible = (folderType == "survivor" and survivorDistanceEnabled) or (folderType == "killer" and killerDistanceEnabled) or (folderType == "generator" and genDistanceEnabled)
+        else
+            if cache.Billboard then cache.Billboard:Destroy() end
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "ESPDistance"
+            billboard.Size = UDim2.new(0, 100, 0, 30)
+            billboard.AlwaysOnTop = true
+            billboard.MaxDistance = math.huge
+            billboard.Adornee = hrp
+            billboard.Parent = hrp
+
+            local textLabel = Instance.new("TextLabel")
+            textLabel.Size = UDim2.new(1, 0, 1, 0)
+            textLabel.BackgroundTransparency = 1
+            textLabel.TextColor3 = color
+            textLabel.TextSize = 14
+            textLabel.Font = Enum.Font.GothamBold
+            textLabel.TextStrokeTransparency = 0
+            textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+            textLabel.Visible = (folderType == "survivor" and survivorDistanceEnabled) or (folderType == "killer" and killerDistanceEnabled) or (folderType == "generator" and genDistanceEnabled)
+            textLabel.Parent = billboard
+
+            cache.Billboard = billboard
+            cache.TextLabel = textLabel
+            cache.RootPart = hrp
+        end
+        cache.Type = folderType
+        return
+    end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESPHighlight"
+    highlight.FillTransparency = 1
+    highlight.OutlineColor = color
+    highlight.OutlineTransparency = 0
+    highlight.Adornee = instance
+    highlight.Parent = instance
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESPDistance"
+    billboard.Size = UDim2.new(0, 100, 0, 30)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = math.huge
+    billboard.Adornee = hrp
+    billboard.Parent = hrp
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.TextColor3 = color
+    textLabel.TextSize = 14
+    textLabel.Font = Enum.Font.GothamBold
+    textLabel.TextStrokeTransparency = 0
+    textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    textLabel.Visible = (folderType == "survivor" and survivorDistanceEnabled) or (folderType == "killer" and killerDistanceEnabled) or (folderType == "generator" and genDistanceEnabled)
+    textLabel.Parent = billboard
+
+    espObjects[instance] = {
+        Highlight = highlight,
+        Billboard = billboard,
+        TextLabel = textLabel,
+        RootPart = hrp,
+        Type = folderType
+    }
+end
+
+local function removeESP(instance)
+    local cache = espObjects[instance]
+    if cache then
+        if cache.Highlight then cache.Highlight:Destroy() end
+        if cache.Billboard then cache.Billboard:Destroy() end
+        espObjects[instance] = nil
+    end
+end
+
+local function fastScan()
+    if survivorEspEnabled then
+        local survivors = workspace:FindFirstChild("survivors")
+        if survivors then
+            for _, child in ipairs(survivors:GetChildren()) do
+                if child:IsA("Model") and child.Name ~= localPlayer.Name then
+                    if not espObjects[child] or not child:FindFirstChild("ESPHighlight") then
+                        createESP(child, Color3.fromRGB(0, 255, 0), "survivor")
+                    end
+                end
+            end
+        end
+    end
+
+    if killerEspEnabled then
+        local killers = workspace:FindFirstChild("killers")
+        if killers then
+            for _, child in ipairs(killers:GetChildren()) do
+                if child:IsA("Model") then
+                    if not espObjects[child] or not child:FindFirstChild("ESPHighlight") then
+                        createESP(child, Color3.fromRGB(255, 0, 0), "killer")
+                    end
+                end
+            end
+        end
+    end
+
+    if genEspEnabled then
+        local mapFolder = workspace:FindFirstChild("map")
+        local mapInner = mapFolder and mapFolder:FindFirstChild("map")
+        if mapInner then
+            for _, child in ipairs(mapInner:GetChildren()) do
+                if child.Name == "template_generator" then
+                    if not espObjects[child] or not child:FindFirstChild("ESPHighlight") then
+                        createESP(child, Color3.fromRGB(160, 32, 240), "generator")
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function updateConnections()
+    for _, conn in ipairs(connections) do
+        conn:Disconnect()
+    end
+    table.clear(connections)
+
+    if not survivorEspEnabled and not killerEspEnabled and not genEspEnabled then return end
+
+    local survivors = workspace:FindFirstChild("survivors")
+    local killers = workspace:FindFirstChild("killers")
+    local mapFolder = workspace:FindFirstChild("map")
+    local mapInner = mapFolder and mapFolder:FindFirstChild("map")
+
+    if survivorEspEnabled and survivors then
+        table.insert(connections, survivors.ChildAdded:Connect(function(child)
+            if survivorEspEnabled then createESP(child, Color3.fromRGB(0, 255, 0), "survivor") end
+        end))
+        table.insert(connections, survivors.ChildRemoved:Connect(removeESP))
+    end
+
+    if killerEspEnabled and killers then
+        table.insert(connections, killers.ChildAdded:Connect(function(child)
+            if killerEspEnabled then createESP(child, Color3.fromRGB(255, 0, 0), "killer") end
+        end))
+        table.insert(connections, killers.ChildRemoved:Connect(removeESP))
+    end
+
+    if genEspEnabled and mapInner then
+        table.insert(connections, mapInner.ChildAdded:Connect(function(child)
+            if genEspEnabled and child.Name == "template_generator" then createESP(child, Color3.fromRGB(160, 32, 240), "generator") end
+        end))
+        table.insert(connections, mapInner.ChildRemoved:Connect(removeESP))
+    end
+
+    table.insert(connections, RunService.RenderStepped:Connect(function()
+        local now = os.clock()
+        if now - lastUpdate >= UPDATE_INTERVAL then
+            lastUpdate = now
+            fastScan()
+        end
+        
+        local localChar = localPlayer.Character
+        local localHRP = localChar and localChar:FindFirstChild("HumanoidRootPart")
+        
+        for instance, data in pairs(espObjects) do
+            if not instance.Parent then
+                removeESP(instance)
+            elseif data.TextLabel.Visible and localHRP and data.RootPart and data.RootPart.Parent then
+                local dist = (localHRP.Position - data.RootPart.Position).Magnitude
+                data.TextLabel.Text = math.floor(dist) .. "m"
+            elseif data.TextLabel.Visible and (not localHRP or not data.RootPart or not data.RootPart.Parent) then
+                data.TextLabel.Text = ""
+            end
+        end
+    end))
+end
+
+local function clearObjectsByType(folderType)
+    for instance, data in pairs(espObjects) do
+        if data.Type == folderType then
+            if data.Highlight then data.Highlight:Destroy() end
+            if data.Billboard then data.Billboard:Destroy() end
+            espObjects[instance] = nil
+        end
+    end
+end
+
+Tab:Toggle({
+    Title = "幸存者透视",
+    Value = false,
+    Callback = function(state)
+        survivorEspEnabled = state
+        if not survivorEspEnabled then
+            clearObjectsByType("survivor")
+        else
+            fastScan()
+        end
+        updateConnections()
+    end
+})
+
+Tab:Toggle({
+    Title = "幸存者距离",
+    Value = false,
+    Callback = function(state)
+        survivorDistanceEnabled = state
+        for _, data in pairs(espObjects) do
+            if data.Type == "survivor" and data.TextLabel then
+                data.TextLabel.Visible = survivorDistanceEnabled
+            end
+        end
+    end
+})
+
+Tab:Toggle({
+    Title = "杀手透视",
+    Value = false,
+    Callback = function(state)
+        killerEspEnabled = state
+        if not killerEspEnabled then
+            clearObjectsByType("killer")
+        else
+            fastScan()
+        end
+        updateConnections()
+    end
+})
+
+Tab:Toggle({
+    Title = "杀手距离",
+    Value = false,
+    Callback = function(state)
+        killerDistanceEnabled = state
+        for _, data in pairs(espObjects) do
+            if data.Type == "killer" and data.TextLabel then
+                data.TextLabel.Visible = killerDistanceEnabled
+            end
+        end
+    end
+})
+
+Tab:Toggle({
+    Title = "发电机透视",
+    Value = false,
+    Callback = function(state)
+        genEspEnabled = state
+        if not genEspEnabled then
+            clearObjectsByType("generator")
+        else
+            fastScan()
+        end
+        updateConnections()
+    end
+})
+
+Tab:Toggle({
+    Title = "发电机距离",
+    Value = false,
+    Callback = function(state)
+        genDistanceEnabled = state
+        for _, data in pairs(espObjects) do
+            if data.Type == "generator" and data.TextLabel then
+                data.TextLabel.Visible = genDistanceEnabled
+            end
+        end
+    end
+})
+
+
+local Tab = Window:Tab({  
+    Title = "发电机/体力",  
+    Icon = "plug-zap",  
+    Locked = false,
+})
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ownerState = require(ReplicatedStorage.modules.charms.ownerState)
+
+local original_stamina = ownerState.stamina
+local connection = nil
+
+Tab:Toggle({
+    Title = "无限体力",
+    Value = false,
+    Callback = function(state)
+        if state then
+            if connection then connection:Disconnect() end
+            connection = game:GetService("RunService").PostSimulation:Connect(function()
+                ownerState.stamina(100)
+            end)
+        else
+            if connection then
+                connection:Disconnect()
+                connection = nil
+            end
+        end
+    end
+})
+
+local remote = game:GetService("ReplicatedStorage"):WaitForChild("modules"):WaitForChild("shared"):WaitForChild("Packet"):WaitForChild("RemoteEvent")
+local Players = game:GetService("Players")
+local running = false
+local thread = nil
+local interval = 3
+local current_id = 128
+local TARGET_ANIM = "112144508637074"
+
+local function isPlayingAnim()
+    local char = Players.LocalPlayer.Character
+    if not char then return false end
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return false end
+    local animator = humanoid:FindFirstChildOfClass("Animator")
+    if not animator then return false end
+    for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+        if track.Animation and track.Animation.AnimationId:find(TARGET_ANIM) then
+            return true
+        end
+    end
+    return false
+end
+
+local function fireAll()
+    while current_id <= 500 do
+        if not running then break end
+        if isPlayingAnim() then
+            task.wait(3)
+            if not running then break end
+            if isPlayingAnim() then
+                local b = buffer.create(3)
+                buffer.writeu8(b, 0, 0)
+                buffer.writeu8(b, 1, current_id)
+                buffer.writeu8(b, 2, 1)
+                remote:FireServer(b)
+                current_id = current_id + 1
+            end
+        end
+        task.wait(interval)
+    end
+end
+
+local function setRunning(val)
+    running = val
+    if running then
+        thread = task.spawn(function()
+            fireAll()
+        end)
+    else
+        if thread then task.cancel(thread) thread = nil end
+    end
+end
+
+Tab:Toggle({
+    Title = "自动修机",
+    Value = false,
+    Callback = function(state)
+        setRunning(state)
+    end
+})
+
+Tab:Slider({
+    Title = "修机速度",
+    Value = {
+        Min = 2,
+        Max = 10,
+        Default = 3,
+    },
+    Callback = function(value)
+        interval = value
+    end
+})
+
+
+end
 local Tab = Window:Tab({  
     Title = "游戏选择",  
     Icon = "house",  
@@ -1753,7 +2364,8 @@ end
 local game_functions = {
     [76158294956631] = idkgame,
     [11765763028] = wcbk,
-    [15367709476] = lakufu
+    [15367709476] = lakufu,
+    [126997916667996] = dbf
 }
 
 local function check_game()
@@ -1799,5 +2411,11 @@ Tab:Button({
     Title = "拉库夫",
     Callback = function()
     lakufu()
+    end
+})
+Tab:Button({
+    Title = "命运的毁灭",
+    Callback = function()
+    dbf()
     end
 })
