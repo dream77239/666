@@ -2340,6 +2340,7 @@ Tab:Slider({
         interval = value
     end
 })
+end
 local function ugcobby()
 Window:Divider()
 local Tab = Window:Tab({
@@ -2514,8 +2515,6 @@ Tab:Toggle({
         end
     end
 })
-
-end
 end
 local Tab = Window:Tab({  
     Title = "游戏选择",  
