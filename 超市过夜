@@ -262,10 +262,12 @@ task.spawn(function()
 					local t = GetItemType(childItem)
 					if t and SelectedTypes[t] then
 						
-						local targetCFrame = childItem:GetPivot()
+						local targetCFrame = nil
 						local handlePart = childItem:FindFirstChild("Handle") or childItem:FindFirstChildWhichIsA("BasePart") or childItem.PrimaryPart
 						if handlePart then
 							targetCFrame = handlePart.CFrame
+						else
+							targetCFrame = childItem:GetPivot()
 						end
 						
 						if targetCFrame and childItem.Parent then
@@ -286,7 +288,15 @@ task.spawn(function()
 							end
 							
 							if itemPP and itemPP:IsA("ProximityPrompt") and childItem.Parent and itemPP.Parent then
-								fireproximityprompt(itemPP)
+								if fireproximityprompt then
+									fireproximityprompt(itemPP)
+								else
+									task.spawn(function()
+										itemPP:InputHoldBegin()
+										task.wait(itemPP.HoldDuration + 0.02)
+										itemPP:InputHoldEnd()
+									end)
+								end
 								task.wait(0.05)
 								
 								local originalVector3 = OriginalPosition.Position
