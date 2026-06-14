@@ -2340,8 +2340,182 @@ Tab:Slider({
         interval = value
     end
 })
+local function ugcobby()
+Window:Divider()
+local Tab = Window:Tab({
+    Title = "实用功能",
+    Icon = "hammer",
+    Locked = false,
+})
+Tab:Button({
+    Title = "汉化飞行",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/fly/refs/heads/main/README.md"))()
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
 
+local tpwalking = false
+local tpwalkSpeed = 5
 
+Tab:Toggle({
+    Title = "速度",
+    Value = false,
+    Callback = function(state)
+        tpwalking = state
+        if state then
+            spawn(function()
+                while tpwalking do
+                    local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                    local hrp = chr:FindFirstChild("HumanoidRootPart")
+                    local hum = chr:FindFirstChildWhichIsA("Humanoid")
+                    local delta = RunService.Heartbeat:Wait()
+                    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
+                        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * tpwalkSpeed * delta)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+Tab:Slider({
+    Title = "速度调节",
+    Value = {
+        Min = 0,
+        Max = 100,
+        Default = tpwalkSpeed,
+    },
+    Callback = function(value)
+        tpwalkSpeed = value
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+
+local NoclipEnabled = false
+local NoclipConnection
+
+local function setCharacterCollision(character, state)
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = state
+        end
+    end
+end
+
+local function enableNoclip()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    setCharacterCollision(character, false)
+
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+    end
+
+    NoclipConnection = RunService.Stepped:Connect(function()
+        if not NoclipEnabled then return end
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in ipairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableNoclip()
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+
+    local character = LocalPlayer.Character
+    if character then
+        setCharacterCollision(character, true)
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if NoclipEnabled then
+        task.wait(0.2)
+        enableNoclip()
+    end
+end)
+
+Tab:Toggle({
+    Title = "穿墙",
+    Value = false,
+    Callback = function(state)
+        NoclipEnabled = state
+        if state then
+            enableNoclip()
+        else
+            disableNoclip()
+        end
+    end
+})
+Tab:Toggle({
+    Title = "传送至下一个存档点",
+    Value = false,
+    Callback = function(state)
+        toggled = state
+        if toggled then
+            task.spawn(function()
+                while toggled do
+                    local targetName = tostring(currentCheck)
+                    local target = workspace.Checkpoints:FindFirstChild(targetName)
+                    local success = false
+                    
+                    if target and target:IsA("BasePart") then
+                        local character = LocalPlayer.Character
+                        if character and character:FindFirstChild("HumanoidRootPart") then
+                            character.HumanoidRootPart.CFrame = target.CFrame + Vector3.new(0, 3, 0)
+                            currentCheck = currentCheck + 1
+                            success = true
+                        end
+                    else
+                        local hasAnyMore = false
+                        for _, child in ipairs(workspace.Checkpoints:GetChildren()) do
+                            local num = tonumber(child.Name)
+                            if num and num >= currentCheck then
+                                hasAnyMore = true
+                                currentCheck = num
+                                break
+                            end
+                        end
+                        
+                        if hasAnyMore then
+                            local retryTarget = workspace.Checkpoints:FindFirstChild(tostring(currentCheck))
+                            local character = LocalPlayer.Character
+                            if retryTarget and retryTarget:IsA("BasePart") and character and character:FindFirstChild("HumanoidRootPart") then
+                                character.HumanoidRootPart.CFrame = retryTarget.CFrame + Vector3.new(0, 3, 0)
+                                currentCheck = currentCheck + 1
+                                success = true
+                            end
+                        end
+                    end
+                    
+                    if not success then
+                        toggled = false
+                        break
+                    end
+                    task.wait(0.4)
+                end
+            end)
+        end
+    end
+})
+
+end
 end
 local Tab = Window:Tab({  
     Title = "游戏选择",  
@@ -2365,7 +2539,8 @@ local game_functions = {
     [76158294956631] = idkgame,
     [11765763028] = wcbk,
     [15367709476] = lakufu,
-    [126997916667996] = dbf
+    [126997916667996] = dbf,
+    [80692223709267] = ugcobby
 }
 
 local function check_game()
@@ -2417,5 +2592,11 @@ Tab:Button({
     Title = "命运的毁灭",
     Callback = function()
     dbf()
+    end
+})
+Tab:Button({
+    Title = "免费ugc跑酷",
+    Callback = function()
+    ugcobby()
     end
 })
