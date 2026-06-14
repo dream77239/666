@@ -1,0 +1,635 @@
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/china-ui/refs/heads/main/main%20(6).lua"))()
+local Window = WindUI:CreateWindow({
+    Title = "超市过夜",
+    Icon = "eye",
+    IconThemed = true,
+    Author = "句号",
+    Folder = "CloudHub",
+    Size = UDim2.fromOffset(500, 400),
+    Transparent = true,
+    Theme = "Dark",
+    Background = nil,
+    User = {
+        Enabled = true,
+        Callback = function() end,
+        Anonymous = false
+    },
+    SideBarWidth = 200,
+    ScrollBarEnabled = true
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+local DamageRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Weapon"):WaitForChild("Damage")
+local SwingRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Weapon"):WaitForChild("Swing")
+local DropRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RequestDropItem")
+local TargetFolder = workspace:WaitForChild("Enemies")
+local ItemsFolder = workspace:WaitForChild("Map"):WaitForChild("Util"):WaitForChild("Items")
+
+local KatanaWeapon = ItemsFolder:FindFirstChild("Katana")
+local PlankWeapon = ItemsFolder:FindFirstChild("Plank")
+
+local ItemEspEnabled = false
+local EnemyEspEnabled = false
+local KillEnabled = false
+local StaminaEnabled = false
+local AutoFarmEnabled = false
+local KillRange = 50
+
+local ItemEspStorage = {}
+local EnemyEspStorage = {}
+local SelectedTypes = {}
+local OriginalPosition = nil
+
+local TypeMap = {
+	["Inventory"] = "子弹",
+	["Health"] = "医疗物品",
+	["Flashlight"] = "照明物品",
+	["Other"] = "能量块",
+	["Food"] = "食物",
+	["Resource"] = "材料",
+	["Drink"] = "饮品",
+	["Melee"] = "武器",
+	["Token"] = "符文石头"
+}
+
+local ReverseTypeMap = {
+	["子弹"] = "Inventory",
+	["医疗物品"] = "Health",
+	["照明物品"] = "Flashlight",
+	["能量块"] = "Other",
+	["食物"] = "Food",
+	["材料"] = "Resource",
+	["饮品"] = "Drink",
+	["武器"] = "Melee",
+	["符文石头"] = "Token"
+}
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "EspOverlayGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+if syn and syn.protect_gui then syn.protect_gui(ScreenGui) end
+ScreenGui.Parent = CoreGui
+
+local sortedTypeList = {"子弹", "医疗物品", "照明物品", "能量块", "食物", "材料", "饮品", "武器", "符文石头"}
+for _, chineseName in ipairs(sortedTypeList) do
+	local engName = ReverseTypeMap[chineseName]
+	SelectedTypes[engName] = false
+end
+
+local function ClearEspTable(storage)
+	for obj, assets in pairs(storage) do
+		if assets.Highlight then assets.Highlight:Destroy() end
+		if assets.Billboard then assets.Billboard:Destroy() end
+	end
+	table.clear(storage)
+end
+
+local function GetItemType(object)
+	local toolStats = object:FindFirstChild("ToolStats")
+	if toolStats then
+		local itemTypeObj = toolStats:FindFirstChild("ItemType")
+		if itemTypeObj and itemTypeObj:IsA("ValueBase") then
+			return itemTypeObj.Value
+		end
+	end
+	return nil
+end
+
+local function GetItemDisplayName(object)
+	local t = GetItemType(object)
+	if t and TypeMap[t] then
+		return TypeMap[t]
+	end
+	return object.Name
+end
+
+local function CreateEsp(object, color, storage, isEnemy)
+	if not object:IsA("Model") and not object:IsA("BasePart") then return end
+	
+	local displayName = isEnemy and "怪物" or GetItemDisplayName(object)
+	
+	local highlight = Instance.new("Highlight")
+	highlight.FillTransparency = 1
+	highlight.OutlineColor = color
+	highlight.OutlineTransparency = 0
+	highlight.Adornee = object
+	highlight.Parent = ScreenGui
+	
+	local billboard = Instance.new("BillboardGui")
+	billboard.Size = UDim2.new(0, 100, 0, 30)
+	billboard.AlwaysOnTop = true
+	billboard.StudsOffset = Vector3.new(0, 2, 0)
+	billboard.Adornee = object:IsA("Model") and (object.PrimaryPart or object:FindFirstChildWhichIsA("BasePart")) or object
+	billboard.Parent = ScreenGui
+	
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = displayName
+	label.TextColor3 = color
+	label.TextSize = 14
+	label.Font = Enum.Font.SourceSansBold
+	label.Parent = billboard
+	
+	storage[object] = {Highlight = highlight, Billboard = billboard, CurrentName = displayName}
+end
+
+local function ManageEsp(enabled, folder, color, storage, isEnemy)
+	if not enabled then 
+		ClearEspTable(storage)
+		return 
+	end
+	
+	for _, child in ipairs(folder:GetChildren()) do
+		local expectedName = isEnemy and "怪物" or GetItemDisplayName(child)
+		local data = storage[child]
+		
+		if not data then
+			CreateEsp(child, color, storage, isEnemy)
+		else
+			if not data.Highlight or data.Highlight.Parent ~= ScreenGui or data.Highlight.Adornee ~= child then
+				if data.Highlight then data.Highlight:Destroy() end
+				local highlight = Instance.new("Highlight")
+				highlight.FillTransparency = 1
+				highlight.OutlineColor = color
+				highlight.OutlineTransparency = 0
+				highlight.Adornee = child
+				highlight.Parent = ScreenGui
+				data.Highlight = highlight
+			end
+			if not data.Billboard or data.Billboard.Parent ~= ScreenGui or data.Billboard.Adornee ~= (child:IsA("Model") and (child.PrimaryPart or child:FindFirstChildWhichIsA("BasePart")) or child) or data.CurrentName ~= expectedName then
+				if data.Billboard then data.Billboard:Destroy() end
+				local billboard = Instance.new("BillboardGui")
+				billboard.Size = UDim2.new(0, 100, 0, 30)
+				billboard.AlwaysOnTop = true
+				billboard.StudsOffset = Vector3.new(0, 2, 0)
+				billboard.Adornee = child:IsA("Model") and (child.PrimaryPart or child:FindFirstChildWhichIsA("BasePart")) or child
+				billboard.Parent = ScreenGui
+				
+				local label = Instance.new("TextLabel")
+				label.Size = UDim2.new(1, 0, 1, 0)
+				label.BackgroundTransparency = 1
+				label.Text = expectedName
+				label.TextColor3 = color
+				label.TextSize = 14
+				label.Font = Enum.Font.SourceSansBold
+				label.Parent = billboard
+				data.Billboard = billboard
+				data.CurrentName = expectedName
+			end
+		end
+	end
+	
+	for obj, assets in pairs(storage) do
+		if not obj or not obj.Parent then
+			if assets.Highlight then assets.Highlight:Destroy() end
+			if assets.Billboard then assets.Billboard:Destroy() end
+			storage[obj] = nil
+		end
+	end
+end
+
+RunService.Heartbeat:Connect(function()
+	ManageEsp(ItemEspEnabled, ItemsFolder, Color3.fromRGB(180, 0, 255), ItemEspStorage, false)
+	ManageEsp(EnemyEspEnabled, TargetFolder, Color3.fromRGB(255, 0, 0), EnemyEspStorage, true)
+end)
+
+task.spawn(function()
+	while task.wait(0.1) do
+		if KillEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+			local myPart = LocalPlayer.Character.HumanoidRootPart
+			for _, enemy in ipairs(TargetFolder:GetChildren()) do
+				local humanoid = enemy:FindFirstChildWhichIsA("Humanoid")
+				if humanoid and humanoid.Health > 0 then
+					local enemyPart = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChildWhichIsA("BasePart")
+					if enemyPart then
+						local distance = (myPart.Position - enemyPart.Position).Magnitude
+						if distance <= KillRange then
+							if KatanaWeapon then
+								SwingRemote:FireServer(unpack({KatanaWeapon}))
+							end
+							if PlankWeapon then
+								SwingRemote:FireServer(unpack({PlankWeapon}))
+							end
+							
+							local damageArgs = {
+								humanoid,
+								"Katana",
+								enemyPart.Position
+							}
+							DamageRemote:FireServer(unpack(damageArgs))
+						end
+					end
+				end
+			end
+		end
+	end
+end)
+
+task.spawn(function()
+	while task.wait() do
+		if StaminaEnabled then
+			local targetCharacter = workspace:FindFirstChild(LocalPlayer.Name)
+			if targetCharacter then
+				local charData = targetCharacter:FindFirstChild("CharacterData")
+				if charData then
+					local stamina = charData:FindFirstChild("Stamina")
+					if stamina and stamina:IsA("ValueBase") then
+						stamina.Value = 100
+					end
+				end
+			end
+		end
+	end
+end)
+
+task.spawn(function()
+	while task.wait(0.2) do 
+		if AutoFarmEnabled and LocalPlayer.Character then
+			local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+			local humanoid = LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+			
+			if root and humanoid and humanoid.Health > 0 and OriginalPosition then
+				for _, childItem in ipairs(ItemsFolder:GetChildren()) do
+					if not AutoFarmEnabled then break end
+					
+					local t = GetItemType(childItem)
+					if t and SelectedTypes[t] then
+						
+						local targetCFrame = childItem:GetPivot()
+						local handlePart = childItem:FindFirstChild("Handle") or childItem:FindFirstChildWhichIsA("BasePart") or childItem.PrimaryPart
+						if handlePart then
+							targetCFrame = handlePart.CFrame
+						end
+						
+						if targetCFrame and childItem.Parent then
+							root.Velocity = Vector3.new(0, 0, 0)
+							root.CFrame = targetCFrame * CFrame.new(0, 1.5, 0)
+							
+							local itemPP = nil
+							local startTime = os.clock()
+							
+							while not itemPP and (os.clock() - startTime) < 0.5 and AutoFarmEnabled and childItem.Parent do
+								if handlePart then
+									itemPP = handlePart:FindFirstChild("ItemPP")
+								end
+								if not itemPP then
+									itemPP = childItem:FindFirstChild("ItemPP", true)
+								end
+								task.wait()
+							end
+							
+							if itemPP and itemPP:IsA("ProximityPrompt") and childItem.Parent and itemPP.Parent then
+								fireproximityprompt(itemPP)
+								task.wait(0.05)
+								
+								local originalVector3 = OriginalPosition.Position
+								local dropArgs = {
+									childItem,
+									originalVector3
+								}
+								
+								DropRemote:FireServer(unpack(dropArgs))
+								task.wait(0.1)
+							end
+						end
+						
+					end
+				end
+			end
+		end
+	end
+end)
+
+local TabUtility = Window:Tab({
+    Title = "实用功能",
+    Icon = "hammer",
+    Locked = false,
+})
+TabUtility:Button({
+    Title = "汉化飞行",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/fly/refs/heads/main/README.md"))()
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local tpwalking = false
+local tpwalkSpeed = 15
+
+TabUtility:Toggle({
+    Title = "速度",
+    Value = false,
+    Callback = function(state)
+        tpwalking = state
+        if state then
+            spawn(function()
+                while tpwalking do
+                    local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                    local hrp = chr:FindFirstChild("HumanoidRootPart")
+                    local hum = chr:FindFirstChildWhichIsA("Humanoid")
+                    local delta = RunService.Heartbeat:Wait()
+                    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
+                        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * tpwalkSpeed * delta)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+TabUtility:Slider({
+    Title = "速度调节",
+    Value = {
+        Min = 0,
+        Max = 100,
+        Default = tpwalkSpeed,
+    },
+    Callback = function(value)
+        tpwalkSpeed = value
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+
+local NoclipEnabled = false
+local NoclipConnection
+
+local function setCharacterCollision(character, state)
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = state
+        end
+    end
+end
+
+local function enableNoclip()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    setCharacterCollision(character, false)
+
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+    end
+
+    NoclipConnection = RunService.Stepped:Connect(function()
+        if not NoclipEnabled then return end
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in ipairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableNoclip()
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+
+    local character = LocalPlayer.Character
+    if character then
+        setCharacterCollision(character, true)
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if NoclipEnabled then
+        task.wait(0.2)
+        enableNoclip()
+    end
+end)
+
+TabUtility:Toggle({
+    Title = "穿墙",
+    Value = false,
+    Callback = function(state)
+        NoclipEnabled = state
+        if state then
+            enableNoclip()
+        else
+            disableNoclip()
+        end
+    end
+})
+local OriginalHoldTimes = {}
+local promptConnection
+local heartbeatConnection
+
+TabUtility:Toggle({
+    Title = "秒互动",
+    Value = false,
+    Callback = function(state)
+        if state then
+            for _, prompt in pairs(workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[prompt] then
+                        OriginalHoldTimes[prompt] = prompt.HoldDuration
+                    end
+                    prompt.HoldDuration = 0
+                end
+            end
+            promptConnection = workspace.DescendantAdded:Connect(function(obj)
+                if obj:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[obj] then
+                        OriginalHoldTimes[obj] = obj.HoldDuration
+                    end
+                    obj.HoldDuration = 0
+                end
+            end)
+            heartbeatConnection = RunService.Heartbeat:Connect(function()
+                for prompt, original in pairs(OriginalHoldTimes) do
+                    if prompt and prompt.Parent then
+                        prompt.HoldDuration = 0
+                    end
+                end
+            end)
+        else
+            if promptConnection then promptConnection:Disconnect() end
+            if heartbeatConnection then heartbeatConnection:Disconnect() end
+            for prompt, original in pairs(OriginalHoldTimes) do
+                if prompt and prompt.Parent then
+                    prompt.HoldDuration = original
+                end
+            end
+        end
+    end
+})
+TabUtility:Toggle({
+	Title = "无限体力",
+	Value = false,
+	Callback = function(state)
+		StaminaEnabled = state
+	end
+})
+TabUtility:Toggle({
+	Title = "杀戮光环",
+	Value = false,
+	Callback = function(state)
+		KillEnabled = state
+	end
+})
+
+TabUtility:Slider({
+	Title = "杀戮光环范围",
+	Value = {
+		Min = 10,
+		Max = 500,
+		Default = 50,
+	},
+	Callback = function(value)
+		KillRange = value
+	end
+})
+local TabFarm = Window:Tab({
+    Title = "自动农场",
+    Icon = "tractor",
+    Locked = false,
+})
+
+TabFarm:Toggle({
+	Title = "自动拾取物品",
+	Desc = "开这个功能的时候记得低着头",
+	Value = false,
+	Callback = function(state)
+		AutoFarmEnabled = state
+		if AutoFarmEnabled then
+			if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+				OriginalPosition = LocalPlayer.Character.HumanoidRootPart.CFrame
+			end
+		else
+			if OriginalPosition and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+				LocalPlayer.Character.HumanoidRootPart.CFrame = OriginalPosition
+				OriginalPosition = nil
+			end
+		end
+	end
+})
+
+TabFarm:Dropdown({
+	Title = "选择具体要拾取的物品",
+	Multi = false,
+	AllowNone = false,
+	Value = nil,
+	Values = sortedTypeList,
+	Callback = function(name)
+		for eng, _ in pairs(SelectedTypes) do
+			SelectedTypes[eng] = false
+		end
+		local engName = ReverseTypeMap[name]
+		if engName then
+			SelectedTypes[engName] = true
+		end
+	end
+})
+
+local TabEsp = Window:Tab({
+    Title = "透视",
+    Icon = "eye",
+    Locked = false,
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+TabEsp:Toggle({
+    Title = "玩家透视",
+    Value = false,
+    Callback = function(state)
+        playerEspOn = state
+        if playerEspOn then
+            local function applyHighlight(parent, outlineColor)
+                if parent:FindFirstChild("_KanlHL") then return end
+                local hl = Instance.new("Highlight")
+                hl.Name = "_KanlHL"
+                hl.FillTransparency = 1
+                hl.OutlineTransparency = 0
+                hl.OutlineColor = outlineColor
+                hl.FillColor = outlineColor
+                hl.Adornee = parent
+                hl.Parent = parent
+            end
+
+            local function applyPlayerEsp(plr)
+                if plr == game:GetService("Players").LocalPlayer then return end
+                local function onChar(char)
+                    if playerEspOn then applyHighlight(char, Color3.fromRGB(0, 255, 0)) end
+                end
+                if plr.Character then onChar(plr.Character) end
+                plr.CharacterAdded:Connect(onChar)
+            end
+
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do 
+                applyPlayerEsp(plr) 
+            end
+
+            game:GetService("Players").PlayerAdded:Connect(function(plr)
+                if playerEspOn then applyPlayerEsp(plr) end
+            end)
+        else
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+                if plr ~= game:GetService("Players").LocalPlayer and plr.Character then
+                    local hl = plr.Character:FindFirstChild("_KanlHL")
+                    if hl then hl:Destroy() end
+                end
+            end
+        end
+    end
+})
+TabEsp:Toggle({
+	Title = "怪物透视",
+	Value = false,
+	Callback = function(state)
+		EnemyEspEnabled = state
+		if not state then
+			ClearEspTable(EnemyEspStorage)
+		end
+	end
+})
+
+TabEsp:Toggle({
+	Title = "物品透视",
+	Value = false,
+	Callback = function(state)
+		ItemEspEnabled = state
+		if not state then
+			ClearEspTable(ItemEspStorage)
+		end
+	end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+TabEsp:Toggle({
+    Title = "地图高亮",
+    Value = false,
+    Callback = function(state)
+        local Lighting = game:GetService("Lighting")
+        if state then
+            Lighting.Brightness = 5
+            Lighting.Ambient = Color3.fromRGB(160, 160, 160)
+            Lighting.OutdoorAmbient = Color3.fromRGB(180, 180, 180)
+        else
+            Lighting.Brightness = 1
+            Lighting.Ambient = Color3.fromRGB(70, 70, 70)
+            Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+        end
+    end,
+})
