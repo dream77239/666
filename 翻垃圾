@@ -1,0 +1,357 @@
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/china-ui/refs/heads/main/main%20(6).lua"))()
+local Window = WindUI:CreateWindow({
+    Title = "idk",
+    Icon = "eye",
+    IconThemed = true,
+    Author = "句号",
+    Folder = "CloudHub",
+    Size = UDim2.fromOffset(500, 400),
+    Transparent = true,
+    Theme = "Light",
+    Background = nil,
+    User = {
+        Enabled = true,
+        Callback = function() end,
+        Anonymous = false
+    },
+    SideBarWidth = 200,
+    ScrollBarEnabled = true
+})
+local Tab = Window:Tab({  
+    Title = "实用功能",  
+    Icon = "hammer",  
+    Locked = false,
+})
+Tab:Button({
+    Title = "汉化飞行",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/fly/refs/heads/main/README.md"))()
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local tpwalking = false
+local tpwalkSpeed = 20
+
+Tab:Toggle({
+    Title = "速度",
+    Value = false,
+    Callback = function(state)
+        tpwalking = state
+        if state then
+            spawn(function()
+                while tpwalking do
+                    local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                    local hrp = chr:FindFirstChild("HumanoidRootPart")
+                    local hum = chr:FindFirstChildWhichIsA("Humanoid")
+                    local delta = RunService.Heartbeat:Wait()
+                    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
+                        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * tpwalkSpeed * delta)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+Tab:Slider({
+    Title = "速度调节",
+    Value = {
+        Min = 0,
+        Max = 100,
+        Default = tpwalkSpeed,
+    },
+    Callback = function(value)
+        tpwalkSpeed = value
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+
+local NoclipEnabled = false
+local NoclipConnection
+
+local function setCharacterCollision(character, state)
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = state
+        end
+    end
+end
+
+local function enableNoclip()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    setCharacterCollision(character, false)
+
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+    end
+
+    NoclipConnection = RunService.Stepped:Connect(function()
+        if not NoclipEnabled then return end
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in ipairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableNoclip()
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+
+    local character = LocalPlayer.Character
+    if character then
+        setCharacterCollision(character, true)
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if NoclipEnabled then
+        task.wait(0.2)
+        enableNoclip()
+    end
+end)
+
+Tab:Toggle({
+    Title = "穿墙",
+    Value = false,
+    Callback = function(state)
+        NoclipEnabled = state
+        if state then
+            enableNoclip()
+        else
+            disableNoclip()
+        end
+    end
+})
+local OriginalHoldTimes = {}
+local promptConnection
+local heartbeatConnection
+
+Tab:Toggle({
+    Title = "秒互动",
+    Value = false,
+    Callback = function(state)
+        if state then
+            for _, prompt in pairs(workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[prompt] then
+                        OriginalHoldTimes[prompt] = prompt.HoldDuration
+                    end
+                    prompt.HoldDuration = 0
+                end
+            end
+            promptConnection = workspace.DescendantAdded:Connect(function(obj)
+                if obj:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[obj] then
+                        OriginalHoldTimes[obj] = obj.HoldDuration
+                    end
+                    obj.HoldDuration = 0
+                end
+            end)
+            heartbeatConnection = RunService.Heartbeat:Connect(function()
+                for prompt, original in pairs(OriginalHoldTimes) do
+                    if prompt and prompt.Parent then
+                        prompt.HoldDuration = 0
+                    end
+                end
+            end)
+        else
+            if promptConnection then promptConnection:Disconnect() end
+            if heartbeatConnection then heartbeatConnection:Disconnect() end
+            for prompt, original in pairs(OriginalHoldTimes) do
+                if prompt and prompt.Parent then
+                    prompt.HoldDuration = original
+                end
+            end
+        end
+    end
+})
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LocalPlayer = Players.LocalPlayer
+local ToolEvent = ReplicatedStorage:WaitForChild("Events"):WaitForChild("ToolEvent")
+local SellFunc = ReplicatedStorage:WaitForChild("Events"):WaitForChild("SellFunc")
+
+local AutoPickEnabled = false
+local AutoSellEnabled = false
+local TeleportLocation = "Kitchen"
+
+local Locations = {
+	["Kitchen"] = Vector3.new(-130.64, 4.99, 21.00),
+	["Beach"] = Vector3.new(-180.42, 4.48, -194.83),
+	["Shop"] = Vector3.new(-260.38, 13.13, 84.41),
+	["Sell"] = Vector3.new(-175.11, 3.98, 45.84)
+}
+
+local PickArgs = {"Activated", true}
+
+task.spawn(function()
+	while true do
+		task.wait(0.1)
+		if AutoPickEnabled then
+			pcall(function()
+				ToolEvent:FireServer(unpack(PickArgs))
+			end)
+		end
+	end
+end)
+
+task.spawn(function()
+	while true do
+		task.wait(1)
+		if AutoSellEnabled then
+			pcall(function()
+				local backpack = LocalPlayer:FindFirstChild("Backpack")
+				if backpack then
+					local trashData = {}
+					local hasTrash = false
+					
+					for _, item in ipairs(backpack:GetChildren()) do
+						if item:IsA("Tool") and string.sub(item.Name, 1, 6) == "Trash_" then
+							local trashName = string.sub(item.Name, 7)
+							if trashName and trashName ~= "" then
+								trashData[trashName] = (trashData[trashName] or 0) + 1
+								hasTrash = true
+							end
+						end
+					end
+					
+					if hasTrash then
+						local updateLootData = {
+							Type = "Trash",
+							UICorner = false,
+							UIStroke = false,
+							UIListLayout = false
+						}
+						for k, v in pairs(trashData) do
+							updateLootData[k] = false
+						end
+						
+						local step1Args = {"UpdateSavedLoot", updateLootData}
+						SellFunc:InvokeServer(unpack(step1Args))
+						task.wait(0.05)
+						
+						local sellData = {Type = "Trash"}
+						for k, v in pairs(trashData) do
+							sellData[k] = v
+						end
+						
+						local step2Args = {"Sell", sellData}
+						SellFunc:InvokeServer(unpack(step2Args))
+						task.wait(0.05)
+						
+						local step3Args = {"GetSavedLoot"}
+						SellFunc:InvokeServer(unpack(step3Args))
+						task.wait(0.05)
+						
+						local step4Args = {
+							"UpdateSavedLoot",
+							{
+								UIListLayout = false,
+								Type = "Trash",
+								UIStroke = false,
+								UICorner = false
+							}
+						}
+						SellFunc:InvokeServer(unpack(step4Args))
+					end
+				end
+			end)
+		end
+	end
+end)
+
+local function Teleport()
+	local character = LocalPlayer.Character
+	if character then
+		local rootPart = character:FindFirstChild("HumanoidRootPart")
+		if rootPart then
+			local targetPos = Locations[TeleportLocation]
+			if targetPos then
+				rootPart.CFrame = CFrame.new(targetPos)
+			end
+		end
+	end
+end
+
+local TabAuto = Window:Tab({  
+    Title = "自动类",  
+    Icon = "tractor",  
+    Locked = false,
+})
+
+local TabTeleport = Window:Tab({  
+    Title = "传送",  
+    Icon = "zap",  
+    Locked = false,
+})
+
+TabAuto:Toggle({
+    Title = "自动翻垃圾",
+    Desc = "先拿着工具然后在垃圾堆附近才有效",
+    Value = false,
+    Callback = function(state)
+        AutoPickEnabled = state
+    end
+})
+
+TabAuto:Toggle({
+    Title = "自动售卖",
+    Desc = "请你靠近商店",
+    Value = false,
+    Callback = function(state)
+        AutoSellEnabled = state
+    end
+})
+
+TabTeleport:Button({
+    Title = "厨房",
+    Callback = function()
+        TeleportLocation = "Kitchen"
+        Teleport()
+    end
+})
+
+TabTeleport:Button({
+    Title = "沙滩",
+    Callback = function()
+        TeleportLocation = "Beach"
+        Teleport()
+    end
+})
+
+TabTeleport:Button({
+    Title = "商店",
+    Callback = function()
+        TeleportLocation = "Shop"
+        Teleport()
+    end
+})
+
+TabTeleport:Button({
+    Title = "售卖点",
+    Callback = function()
+        TeleportLocation = "Sell"
+        Teleport()
+    end
+})
