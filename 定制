@@ -2464,57 +2464,236 @@ Tab:Toggle({
         end
     end
 })
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+if _G.currentCheck == nil then
+    _G.currentCheck = 0
+end
+
 Tab:Toggle({
     Title = "传送至下一个存档点",
     Value = false,
     Callback = function(state)
-        toggled = state
-        if toggled then
+        _G.toggled = state
+        if _G.toggled then
             task.spawn(function()
-                while toggled do
-                    local targetName = tostring(currentCheck)
-                    local target = workspace.Checkpoints:FindFirstChild(targetName)
+                while _G.toggled do
+                    local targetName = tostring(_G.currentCheck)
+                    local target = workspace:WaitForChild("Checkpoints"):FindFirstChild(targetName)
                     local success = false
                     
-                    if target and target:IsA("BasePart") then
+                    if target and (target:IsA("BasePart") or target:IsA("Model")) then
                         local character = LocalPlayer.Character
-                        if character and character:FindFirstChild("HumanoidRootPart") then
-                            character.HumanoidRootPart.CFrame = target.CFrame + Vector3.new(0, 3, 0)
-                            currentCheck = currentCheck + 1
-                            success = true
+                        local root = character and (character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("PrimaryPart"))
+                        if root then
+                            if target:IsA("Model") then
+                                if target.PrimaryPart then
+                                    root.CFrame = target.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
+                                    _G.currentCheck = _G.currentCheck + 1
+                                    success = true
+                                elseif target:FindFirstChildWhichIsA("BasePart") then
+                                    root.CFrame = target:FindFirstChildWhichIsA("BasePart").CFrame + Vector3.new(0, 3, 0)
+                                    _G.currentCheck = _G.currentCheck + 1
+                                    success = true
+                                end
+                            else
+                                root.CFrame = target.CFrame + Vector3.new(0, 3, 0)
+                                _G.currentCheck = _G.currentCheck + 1
+                                success = true
+                            end
                         end
                     else
                         local hasAnyMore = false
-                        for _, child in ipairs(workspace.Checkpoints:GetChildren()) do
+                        local nextNum = nil
+                        for _, child in ipairs(workspace:WaitForChild("Checkpoints"):GetChildren()) do
                             local num = tonumber(child.Name)
-                            if num and num >= currentCheck then
-                                hasAnyMore = true
-                                currentCheck = num
-                                break
+                            if num and num >= _G.currentCheck then
+                                if nextNum == nil or num < nextNum then
+                                    nextNum = num
+                                    hasAnyMore = true
+                                end
                             end
                         end
                         
-                        if hasAnyMore then
-                            local retryTarget = workspace.Checkpoints:FindFirstChild(tostring(currentCheck))
+                        if hasAnyMore and nextNum then
+                            _G.currentCheck = nextNum
+                            local retryTarget = workspace:WaitForChild("Checkpoints"):FindFirstChild(tostring(_G.currentCheck))
                             local character = LocalPlayer.Character
-                            if retryTarget and retryTarget:IsA("BasePart") and character and character:FindFirstChild("HumanoidRootPart") then
-                                character.HumanoidRootPart.CFrame = retryTarget.CFrame + Vector3.new(0, 3, 0)
-                                currentCheck = currentCheck + 1
-                                success = true
+                            local root = character and (character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("PrimaryPart"))
+                            if retryTarget and root then
+                                if retryTarget:IsA("Model") then
+                                    if retryTarget.PrimaryPart then
+                                        root.CFrame = retryTarget.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
+                                        _G.currentCheck = _G.currentCheck + 1
+                                        success = true
+                                    elseif retryTarget:FindFirstChildWhichIsA("BasePart") then
+                                        root.CFrame = retryTarget:FindFirstChildWhichIsA("BasePart").CFrame + Vector3.new(0, 3, 0)
+                                        _G.currentCheck = _G.currentCheck + 1
+                                        success = true
+                                    end
+                                else
+                                    root.CFrame = retryTarget.CFrame + Vector3.new(0, 3, 0)
+                                    _G.currentCheck = _G.currentCheck + 1
+                                    success = true
+                                end
                             end
                         end
                     end
                     
                     if not success then
-                        toggled = false
-                        break
+                        task.wait(0.5)
+                    else
+                        task.wait(0.4)
                     end
-                    task.wait(0.4)
                 end
             end)
         end
     end
 })
+
+end
+local function am()
+Window:Divider()
+local Tab = Window:Tab({  
+    Title = "实用功能",  
+    Icon = "hammer",  
+    Locked = false,
+})
+local OriginalHoldTimes = {}
+local promptConnection
+local heartbeatConnection
+
+Tab:Toggle({
+    Title = "秒互动",
+    Value = false,
+    Callback = function(state)
+        if state then
+            for _, prompt in pairs(workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[prompt] then
+                        OriginalHoldTimes[prompt] = prompt.HoldDuration
+                    end
+                    prompt.HoldDuration = 0
+                end
+            end
+            promptConnection = workspace.DescendantAdded:Connect(function(obj)
+                if obj:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[obj] then
+                        OriginalHoldTimes[obj] = obj.HoldDuration
+                    end
+                    obj.HoldDuration = 0
+                end
+            end)
+            heartbeatConnection = RunService.Heartbeat:Connect(function()
+                for prompt, original in pairs(OriginalHoldTimes) do
+                    if prompt and prompt.Parent then
+                        prompt.HoldDuration = 0
+                    end
+                end
+            end)
+        else
+            if promptConnection then promptConnection:Disconnect() end
+            if heartbeatConnection then heartbeatConnection:Disconnect() end
+            for prompt, original in pairs(OriginalHoldTimes) do
+                if prompt and prompt.Parent then
+                    prompt.HoldDuration = original
+                end
+            end
+        end
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local NPCsFolder = workspace:WaitForChild("NPCs")
+
+local sanityActive = false
+local espActive = false
+local espConnection
+
+local function applyESP(object)
+	if object:GetAttribute("Skinwalker") == true then
+		if not object:FindFirstChild("ESPHighlight") then
+			local highlight = Instance.new("Highlight")
+			highlight.Name = "ESPHighlight"
+			highlight.FillTransparency = 1
+			highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+			highlight.OutlineTransparency = 0
+			highlight.Adornee = object
+			highlight.Parent = object
+		end
+	else
+		local existing = object:FindFirstChild("ESPHighlight")
+		if existing then
+			existing:Destroy()
+		end
+	end
+end
+
+local function removeESP(object)
+	local existing = object:FindFirstChild("ESPHighlight")
+	if existing then
+		existing:Destroy()
+	end
+end
+
+Tab:Toggle({
+    Title = "无限理智",
+    Value = false,
+    Callback = function(state)
+        sanityActive = state
+        if sanityActive then
+            task.spawn(function()
+                while sanityActive do
+                    if LocalPlayer then
+                        if LocalPlayer:GetAttribute("Sanity") ~= nil then
+                            LocalPlayer:SetAttribute("Sanity", 100)
+                        end
+                        
+                        local char = LocalPlayer.Character
+                        if char and char:GetAttribute("Sanity") ~= nil then
+                            char:SetAttribute("Sanity", 100)
+                        end
+                        
+                        local valInstance = LocalPlayer:FindFirstChild("Sanity", true)
+                        if not valInstance and char then
+                            valInstance = char:FindFirstChild("Sanity", true)
+                        end
+                        
+                        if valInstance and valInstance:IsA("ValueBase") then
+                            valInstance.Value = 100
+                        end
+                    end
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end
+})
+
+Tab:Toggle({
+    Title = "透视异常动物",
+    Value = false,
+    Callback = function(state)
+        espActive = state
+        if espConnection then espConnection:Disconnect() espConnection = nil end
+        
+        if espActive then
+            espConnection = RunService.Heartbeat:Connect(function()
+                for _, child in ipairs(NPCsFolder:GetChildren()) do
+                    applyESP(child)
+                end
+            end)
+        else
+            for _, child in ipairs(NPCsFolder:GetChildren()) do
+                removeESP(child)
+            end
+        end
+    end
+})
+
 end
 local Tab = Window:Tab({  
     Title = "游戏选择",  
@@ -2539,7 +2718,8 @@ local game_functions = {
     [11765763028] = wcbk,
     [15367709476] = lakufu,
     [126997916667996] = dbf,
-    [80692223709267] = ugcobby
+    [80692223709267] = ugcobby,
+    [104522435597696] = am
 }
 
 local function check_game()
@@ -2597,5 +2777,11 @@ Tab:Button({
     Title = "免费ugc跑酷",
     Callback = function()
     ugcobby()
+    end
+})
+Tab:Button({
+    Title = "动物医院",
+    Callback = function()
+    am()
     end
 })
