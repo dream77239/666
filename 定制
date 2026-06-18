@@ -2695,6 +2695,479 @@ Tab:Toggle({
 })
 
 end
+local function botandgun()
+Window:Divider()
+local Tab = Window:Tab({  
+    Title = "实用功能",  
+    Icon = "hammer",  
+    Locked = false,
+})
+Tab:Button({
+    Title = "汉化飞行",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/fly/refs/heads/main/README.md"))()
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local tpwalking = false
+local tpwalkSpeed = 20
+
+Tab:Toggle({
+    Title = "速度",
+    Value = false,
+    Callback = function(state)
+        tpwalking = state
+        if state then
+            spawn(function()
+                while tpwalking do
+                    local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                    local hrp = chr:FindFirstChild("HumanoidRootPart")
+                    local hum = chr:FindFirstChildWhichIsA("Humanoid")
+                    local delta = RunService.Heartbeat:Wait()
+                    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
+                        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * tpwalkSpeed * delta)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+Tab:Slider({
+    Title = "速度调节",
+    Value = {
+        Min = 0,
+        Max = 100,
+        Default = tpwalkSpeed,
+    },
+    Callback = function(value)
+        tpwalkSpeed = value
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+
+local NoclipEnabled = false
+local NoclipConnection
+
+local function setCharacterCollision(character, state)
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = state
+        end
+    end
+end
+
+local function enableNoclip()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    setCharacterCollision(character, false)
+
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+    end
+
+    NoclipConnection = RunService.Stepped:Connect(function()
+        if not NoclipEnabled then return end
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in ipairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableNoclip()
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+
+    local character = LocalPlayer.Character
+    if character then
+        setCharacterCollision(character, true)
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if NoclipEnabled then
+        task.wait(0.2)
+        enableNoclip()
+    end
+end)
+
+Tab:Toggle({
+    Title = "穿墙",
+    Value = false,
+    Callback = function(state)
+        NoclipEnabled = state
+        if state then
+            enableNoclip()
+        else
+            disableNoclip()
+        end
+    end
+})
+local function ModifyScript()
+    for i, v in pairs(getgc(true)) do
+        if type(v) == "function" and islclosure(v) then
+            local info = debug.getinfo(v)
+            local name = info.name
+            local nups = info.nups
+            local src = info.source
+
+            if string.find(src, "MusketLocalScript") then
+                if nups == 12 and name == "" then
+                    local currentConstants = getconstants(v)
+                    for _, c in pairs(currentConstants) do
+                        if c == "Reload" then
+                            hookfunction(v, function(...)
+                                local Character = game.Players.LocalPlayer.Character
+                                local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+                                
+                                local res = v(...)
+                                
+                                if _G.NoSlowActive and Humanoid then
+                                    task.spawn(function()
+                                        while _G.NoSlowActive and Humanoid.WalkSpeed < 16 do
+                                            Humanoid.WalkSpeed = 16
+                                            task.wait()
+                                        end
+                                    end)
+                                end
+                                return res
+                            end)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+pcall(ModifyScript)
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+_G.NoSlowActive = false
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    if _G.NoSlowActive then
+        local Character = LocalPlayer.Character
+        local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+        if Humanoid and Humanoid.WalkSpeed < 16 then
+            Humanoid.WalkSpeed = 16
+        end
+    end
+end)
+
+Tab:Toggle({
+    Title = "换弹无减速",
+    Value = false,
+    Callback = function(state)
+        _G.NoSlowActive = state
+    end
+})
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+local AimbotEnabled = false
+local ESPEnabled = false
+local TeamCheck = false
+local WallCheck = false
+local AimbotTargetMode = "Players"
+local NPCCheck = false
+
+local FOVRadius = 50
+local Storage = {ESP = {}, NPC_ESP = {}}
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CustomFOVGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.IgnoreGuiInset = true
+if syn and syn.protect_gui then syn.protect_gui(ScreenGui) end
+ScreenGui.Parent = CoreGui
+
+local FOVFrame = Instance.new("Frame")
+FOVFrame.Size = UDim2.new(0, FOVRadius * 2, 0, FOVRadius * 2)
+FOVFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+FOVFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+FOVFrame.BackgroundTransparency = 1
+FOVFrame.Visible = false
+FOVFrame.Parent = ScreenGui
+
+local FOVStroke = Instance.new("UIStroke")
+FOVStroke.Thickness = 1.5
+FOVStroke.Color = Color3.fromRGB(255, 255, 255)
+FOVStroke.Transparency = 0.2
+FOVStroke.Parent = FOVFrame
+
+local FOVCorner = Instance.new("UICorner")
+FOVCorner.CornerRadius = UDim.new(0.5, 0)
+FOVCorner.Parent = FOVFrame
+
+local function ClearAllESP()
+    for _, item in pairs(Storage.ESP) do
+        if item.Box then item.Box:Destroy() end
+    end
+    table.clear(Storage.ESP)
+end
+
+local function ClearAllNPCESP()
+    for _, item in pairs(Storage.NPC_ESP) do
+        if item.Box then item.Box:Destroy() end
+    end
+    table.clear(Storage.NPC_ESP)
+end
+
+local AimbotTab = Window:Tab({  
+    Title = "自瞄",  
+    Icon = "crosshair",  
+    Locked = false,
+})
+
+AimbotTab:Toggle({
+    Title = "自瞄开关",
+    Value = false,
+    Callback = function(state)
+        AimbotEnabled = state
+        FOVFrame.Visible = state
+    end
+})
+
+AimbotTab:Slider({
+    Title = "调节fov圈大小",
+    Value = {
+        Min = 10,
+        Max = 200,
+        Default = 50,
+    },
+    Callback = function(value)
+        FOVRadius = value
+        FOVFrame.Size = UDim2.new(0, value * 2, 0, value * 2)
+    end
+})
+
+AimbotTab:Dropdown({
+    Title = "选择自瞄目标",
+    Multi = false,
+    AllowNone = false,
+    Value = "Players",
+    Values = {"Players", "NPCs"},
+    Callback = function(name)
+        AimbotTargetMode = name
+    end
+})
+
+AimbotTab:Toggle({
+    Title = "自瞄团队检测",
+    Value = false,
+    Callback = function(state)
+        TeamCheck = state
+    end
+})
+
+AimbotTab:Toggle({
+    Title = "自瞄墙壁检测",
+    Value = false,
+    Callback = function(state)
+        WallCheck = state
+    end
+})
+
+local ESPTab = Window:Tab({  
+    Title = "透视",  
+    Icon = "eye",  
+    Locked = false,
+})
+
+ESPTab:Toggle({
+    Title = "玩家透视",
+    Value = false,
+    Callback = function(state)
+        ESPEnabled = state
+        if not state then ClearAllESP() end
+    end
+})
+
+ESPTab:Toggle({
+    Title = "NPC透视",
+    Value = false,
+    Callback = function(state)
+        NPCCheck = state
+        if not state then ClearAllNPCESP() end
+    end
+})
+
+LocalPlayer:GetPropertyChangedSignal("Team"):Connect(function()
+    ClearAllESP()
+end)
+
+local function IsValidCharacter(char)
+    if not char then return false end
+    local human = char:FindFirstChildOfClass("Humanoid")
+    local head = char:FindFirstChild("Head")
+    if not human or not head or human.Health <= 0 then return false end
+    if char:FindFirstChildOfClass("ForceField") then return false end
+    if char.Name == "Dead" then return false end
+    return true
+end
+
+local function IsValidPlayer(player)
+    if not player or player == LocalPlayer or not player.Character then return false end
+    if player.Team and player.Team.Name == "Dead" then return false end
+    return IsValidCharacter(player.Character)
+end
+
+local function IsVisible(targetHead)
+    if not WallCheck then return true end
+    local castPoints = {Camera.CFrame.Position, targetHead.Position}
+    local ignoreList = {LocalPlayer.Character, targetHead.Parent}
+    local parts = Camera:GetPartsObscuringTarget(castPoints, ignoreList)
+    return #parts == 0
+end
+
+local function GetClosestTarget(screenCenter)
+    local closestTarget = nil
+    local maxDistance = FOVRadius
+
+    if AimbotTargetMode == "Players" then
+        for _, player in pairs(Players:GetPlayers()) do
+            if IsValidPlayer(player) then
+                if not TeamCheck or (TeamCheck and player.Team ~= LocalPlayer.Team) then
+                    local head = player.Character.Head
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                    if onScreen and IsVisible(head) then
+                        local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                        if distance < maxDistance then
+                            maxDistance = distance
+                            closestTarget = head
+                        end
+                    end
+                end
+            end
+        end
+    elseif AimbotTargetMode == "NPCs" then
+        for _, desc in pairs(Workspace:GetDescendants()) do
+            if desc:IsA("Model") and desc:FindFirstChildOfClass("Humanoid") and not Players:GetPlayerFromCharacter(desc) then
+                if IsValidCharacter(desc) then
+                    local head = desc:FindFirstChild("Head")
+                    if head then
+                        local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                        if onScreen and IsVisible(head) then
+                            local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                            if distance < maxDistance then
+                                maxDistance = distance
+                                closestTarget = head
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestTarget
+end
+
+RunService.RenderStepped:Connect(function()
+    local screenSize = Camera.ViewportSize
+    local screenCenter = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
+
+    if AimbotEnabled then
+        local target = GetClosestTarget(screenCenter)
+        if target then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
+        end
+    end
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if IsValidPlayer(player) and ESPEnabled then
+            local char = player.Character
+            local isAlly = (player.Team == LocalPlayer.Team)
+            local boxHighlight = Storage.ESP[player]
+            
+            if not boxHighlight or not boxHighlight.Box or not boxHighlight.Box.Parent then
+                if boxHighlight and boxHighlight.Box then boxHighlight.Box:Destroy() end
+                local box = Instance.new("Highlight")
+                box.FillTransparency = 1
+                box.OutlineTransparency = 0
+                box.Adornee = char
+                box.Parent = CoreGui
+                Storage.ESP[player] = {Box = box}
+                boxHighlight = Storage.ESP[player]
+            end
+
+            boxHighlight.Box.OutlineColor = isAlly and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+            boxHighlight.Box.Adornee = char
+        else
+            if Storage.ESP[player] and Storage.ESP[player].Box then
+                Storage.ESP[player].Box:Destroy()
+                Storage.ESP[player] = nil
+            end
+        end
+    end
+
+    for player, item in pairs(Storage.ESP) do
+        if not Players:FindFirstChild(player.Name) then
+            if item.Box then item.Box:Destroy() end
+            Storage.ESP[player] = nil
+        end
+    end
+
+    if NPCCheck then
+        local currentNPCs = {}
+        for _, desc in pairs(Workspace:GetDescendants()) do
+            if desc:IsA("Model") and desc:FindFirstChildOfClass("Humanoid") and not Players:GetPlayerFromCharacter(desc) then
+                if IsValidCharacter(desc) then
+                    currentNPCs[desc] = true
+                    local boxHighlight = Storage.NPC_ESP[desc]
+                    if not boxHighlight or not boxHighlight.Box or not boxHighlight.Box.Parent then
+                        if boxHighlight and boxHighlight.Box then boxHighlight.Box:Destroy() end
+                        local box = Instance.new("Highlight")
+                        box.FillTransparency = 1
+                        box.OutlineTransparency = 0
+                        box.OutlineColor = Color3.fromRGB(128, 0, 128)
+                        box.Adornee = desc
+                        box.Parent = CoreGui
+                        Storage.NPC_ESP[desc] = {Box = box}
+                        boxHighlight = Storage.NPC_ESP[desc]
+                    end
+                    boxHighlight.Box.Adornee = desc
+                end
+            end
+        end
+
+        for npc, item in pairs(Storage.NPC_ESP) do
+            if not currentNPCs[npc] then
+                if item.Box then item.Box:Destroy() end
+                Storage.NPC_ESP[npc] = nil
+            end
+        end
+    else
+        ClearAllNPCESP()
+    end
+end)
+
+end
 local Tab = Window:Tab({  
     Title = "游戏选择",  
     Icon = "house",  
@@ -2719,7 +3192,8 @@ local game_functions = {
     [15367709476] = lakufu,
     [126997916667996] = dbf,
     [80692223709267] = ugcobby,
-    [104522435597696] = am
+    [104522435597696] = am,
+    [133277436323400] = botandgun
 }
 
 local function check_game()
@@ -2783,5 +3257,11 @@ Tab:Button({
     Title = "动物医院",
     Callback = function()
     am()
+    end
+})
+Tab:Button({
+    Title = "机器人与滑膛枪",
+    Callback = function()
+    botandgun()
     end
 })
