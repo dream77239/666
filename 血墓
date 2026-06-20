@@ -1,4 +1,4 @@
-local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/china-ui/refs/heads/main/main%20(6).lua"))()
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/sss/refs/heads/main/main%20(7).lua"))()
 local Window = WindUI:CreateWindow({
     Title = "血墓",
     Icon = "eye",
@@ -7,7 +7,7 @@ local Window = WindUI:CreateWindow({
     Folder = "CloudHub",
     Size = UDim2.fromOffset(500, 400),
     Transparent = true,
-    Theme = "Light",
+    Theme = "Dark",
     Background = nil,
     User = {
         Enabled = true,
@@ -18,69 +18,117 @@ local Window = WindUI:CreateWindow({
     ScrollBarEnabled = true
 })
 
-local Tab = Window:Tab({  
-    Title = "功能",  
-    Icon = "house",  
+local TabUtility = Window:Tab({  
+    Title = "实用功能",  
+    Icon = "hammer",  
+    Locked = false,
+})
+
+local TabTeleport = Window:Tab({  
+    Title = "传送",  
+    Icon = "zap",  
+    Locked = false,
+})
+
+local TabCombat = Window:Tab({  
+    Title = "战斗",  
+    Icon = "swords",  
+    Locked = false,
+})
+
+local TabESP = Window:Tab({  
+    Title = "透视",  
+    Icon = "eye",  
     Locked = false,
 })
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
 
 local LocalPlayer = Players.LocalPlayer
 local targetEntity = Workspace:FindFirstChild("Enemies") and Workspace.Enemies:FindFirstChild("Bloodgraven")
 local highlightObj = nil
 local espEnabled = false
 
-local teleportLocations = {
-    {name = "商店", pos = Vector3.new(448.50, 10.74, -93.40)},
-    {name = "教堂", pos = Vector3.new(386.73, 1.20, 282.06)},
-    {name = "仓库", pos = Vector3.new(-588.66, -6.18, 91.02)},
-    {name = "献祭", pos = Vector3.new(-359.29, 7.85, -172.32)},
-    {name = "许愿井", pos = Vector3.new(-260.25, -3.02, -419.43)},
-    {name = "屋子", pos = Vector3.new(-22.72, 22.78, -162.11)},
-    {name = "塔", pos = Vector3.new(246.99, 46.25, -250.93)}
-}
-
-Tab:Toggle({
+TabESP:Toggle({
     Title = "透视怪物",
     Value = false,
     Callback = function(state)
         espEnabled = state
-        if state then
-            if targetEntity then
-                if not highlightObj or not highlightObj.Parent then
-                    highlightObj = Instance.new("Highlight")
-                    highlightObj.Name = "CustomESP"
-                    highlightObj.FillColor = Color3.fromRGB(255, 0, 0)
-                    highlightObj.OutlineColor = Color3.fromRGB(255, 0, 0)
-                    highlightObj.FillTransparency = 1
-                    highlightObj.OutlineTransparency = 0
-                    highlightObj.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                    highlightObj.Parent = targetEntity
-                end
-            end
-        else
-            if highlightObj then
-                highlightObj:Destroy()
-                highlightObj = nil
-            end
+    end
+})
+
+TabTeleport:Button({
+    Title = "传送 商店",
+    Callback = function()
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(448.50, 10.74, -93.40))
         end
     end
 })
 
-for _, loc in ipairs(teleportLocations) do
-    Tab:Button({
-        Title = "传送 " .. loc.name,
-        Callback = function()
-            local character = LocalPlayer.Character
-            if character and character:FindFirstChild("HumanoidRootPart") then
-                character.HumanoidRootPart.CFrame = CFrame.new(loc.pos)
-            end
+TabTeleport:Button({
+    Title = "传送 教堂",
+    Callback = function()
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(386.73, 1.20, 282.06))
         end
-    })
-end
+    end
+})
+
+TabTeleport:Button({
+    Title = "传送 仓库",
+    Callback = function()
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(-588.66, -6.18, 91.02))
+        end
+    end
+})
+
+TabTeleport:Button({
+    Title = "传送 献祭",
+    Callback = function()
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(-359.29, 7.85, -172.32))
+        end
+    end
+})
+
+TabTeleport:Button({
+    Title = "传送 许愿井",
+    Callback = function()
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(-260.25, -3.02, -419.43))
+        end
+    end
+})
+
+TabTeleport:Button({
+    Title = "传送 屋子",
+    Callback = function()
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(-22.72, 22.78, -162.11))
+        end
+    end
+})
+
+TabTeleport:Button({
+    Title = "传送 塔",
+    Callback = function()
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(246.99, 46.25, -250.93))
+        end
+    end
+})
 
 RunService.RenderStepped:Connect(function()
     if espEnabled then
@@ -89,7 +137,15 @@ RunService.RenderStepped:Connect(function()
         end
         
         if targetEntity then
-            if not highlightObj or not highlightObj.Parent then
+            local gameHighlight = targetEntity:FindFirstChildOfClass("Highlight")
+            if gameHighlight and gameHighlight ~= highlightObj then
+                gameHighlight:Destroy()
+            end
+
+            if not highlightObj or not highlightObj.Parent or highlightObj.Name ~= "CustomESP" then
+                if highlightObj then
+                    highlightObj:Destroy()
+                end
                 highlightObj = Instance.new("Highlight")
                 highlightObj.Name = "CustomESP"
                 highlightObj.FillColor = Color3.fromRGB(255, 0, 0)
@@ -110,7 +166,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-Tab:Button({
+TabUtility:Button({
     Title = "汉化飞行",
     Callback = function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/fly/refs/heads/main/README.md"))()
@@ -118,15 +174,15 @@ Tab:Button({
 })
 
 local tpwalking = false
-local tpwalkSpeed = 5
+local tpwalkSpeed = 30
 
-Tab:Toggle({
+TabUtility:Toggle({
     Title = "速度",
     Value = false,
     Callback = function(state)
         tpwalking = state
         if state then
-            spawn(function()
+            task.spawn(function()
                 while tpwalking do
                     local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
                     local hrp = chr:FindFirstChild("HumanoidRootPart")
@@ -141,7 +197,7 @@ Tab:Toggle({
     end
 })
 
-Tab:Slider({
+TabUtility:Slider({
     Title = "速度调节",
     Value = {
         Min = 0,
@@ -157,7 +213,7 @@ local OriginalHoldTimes = {}
 local promptConnection
 local heartbeatConnection
 
-Tab:Toggle({
+TabUtility:Toggle({
     Title = "秒互动",
     Value = false,
     Callback = function(state)
@@ -250,7 +306,7 @@ LocalPlayer.CharacterAdded:Connect(function()
     end
 end)
 
-Tab:Toggle({
+TabUtility:Toggle({
     Title = "穿墙",
     Value = false,
     Callback = function(state)
@@ -263,27 +319,281 @@ Tab:Toggle({
     end
 })
 
-Tab:Button({
+TabUtility:Button({
     Title = "删除雾",
     Callback = function()
-        local sky = game:GetService("Lighting"):FindFirstChildOfClass("Sky")
+        local sky = Lighting:FindFirstChildOfClass("Sky")
         if sky then sky:Destroy() end
     end,
 })
 
-Tab:Toggle({
+local mapHighlightConn = nil
+
+local function applyHighlight()
+    Lighting.Brightness = 5
+    Lighting.Ambient = Color3.fromRGB(160, 160, 160)
+    Lighting.OutdoorAmbient = Color3.fromRGB(180, 180, 180)
+end
+
+TabUtility:Toggle({
     Title = "地图高亮",
     Value = false,
     Callback = function(state)
-        local Lighting = game:GetService("Lighting")
+        if mapHighlightConn then
+            mapHighlightConn:Disconnect()
+            mapHighlightConn = nil
+        end
+
         if state then
-            Lighting.Brightness = 5
-            Lighting.Ambient = Color3.fromRGB(160, 160, 160)
-            Lighting.OutdoorAmbient = Color3.fromRGB(180, 180, 180)
+            applyHighlight()
+            mapHighlightConn = Lighting.Changed:Connect(function(property)
+                if property == "Brightness" or property == "Ambient" or property == "OutdoorAmbient" then
+                    Lighting.Brightness = 5
+                    Lighting.Ambient = Color3.fromRGB(160, 160, 160)
+                    Lighting.OutdoorAmbient = Color3.fromRGB(180, 180, 180)
+                end
+            end)
         else
             Lighting.Brightness = 1
             Lighting.Ambient = Color3.fromRGB(70, 70, 70)
             Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
         end
     end,
+})
+
+local isTeleporting = false
+local isScaling = false
+local tpConnection
+local scaleConnection
+
+local originalCollisionGroup = {}
+local originalTransparencies = {}
+local originalSizes = {}
+
+local targetDistance = 3
+local headScaleSize = 4
+
+local function getTargets()
+    local targets = {}
+    local enemies = Workspace:FindFirstChild("Enemies")
+    if enemies then
+        for _, enemy in ipairs(enemies:GetChildren()) do
+            local head = enemy:FindFirstChild("Head")
+            local hitbox = enemy:FindFirstChild("HeadHitbox")
+            if head and hitbox then
+                table.insert(targets, {head = head, hitbox = hitbox, model = enemy})
+            end
+        end
+    end
+    return targets
+end
+
+local function cleanTargetState(head, hitbox)
+    if head and hitbox then
+        if originalSizes[head] then head.Size = originalSizes[head] end
+        if originalSizes[hitbox] then hitbox.Size = originalSizes[hitbox] end
+        
+        if head:IsA("SpecialMesh") or head:FindFirstChildOfClass("SpecialMesh") then
+            local mesh = head:IsA("SpecialMesh") and head or head:FindFirstChildOfClass("SpecialMesh")
+            mesh.MeshType = Enum.MeshType.Head
+        end
+        if hitbox:IsA("SpecialMesh") or hitbox:FindFirstChildOfClass("SpecialMesh") then
+            local mesh = hitbox:IsA("SpecialMesh") and hitbox or hitbox:FindFirstChildOfClass("SpecialMesh")
+            mesh.MeshType = Enum.MeshType.Head
+        end
+        
+        head.Transparency = originalTransparencies[head] or 0
+        hitbox.Transparency = originalTransparencies[hitbox] or 0
+        head.Massless = false
+        hitbox.Massless = false
+        head.CanCollide = true
+        hitbox.CanCollide = true
+    end
+end
+
+local function restoreLocalPlayerCollision()
+    local character = LocalPlayer.Character
+    if character then
+        for _, part in ipairs(character:GetChildren()) do
+            if part:IsA("BasePart") and originalCollisionGroup[part.Name] ~= nil then
+                part.CanCollide = originalCollisionGroup[part.Name]
+            end
+        end
+    end
+    table.clear(originalCollisionGroup)
+end
+
+local function updateScaleLogic()
+    if not isScaling then return end
+    
+    local currentTargets = getTargets()
+    for _, target in ipairs(currentTargets) do
+        local currentHead = target.head
+        local currentHeadHitbox = target.hitbox
+        
+        if not originalSizes[currentHead] then originalSizes[currentHead] = currentHead.Size end
+        if not originalSizes[currentHeadHitbox] then originalSizes[currentHeadHitbox] = currentHeadHitbox.Size end
+        if not originalTransparencies[currentHead] then originalTransparencies[currentHead] = currentHead.Transparency end
+        if not originalTransparencies[currentHeadHitbox] then originalTransparencies[currentHeadHitbox] = currentHeadHitbox.Transparency end
+        
+        local desiredSize = Vector3.new(headScaleSize, headScaleSize, headScaleSize)
+        if currentHead.Size ~= desiredSize then
+            currentHead.Size = desiredSize
+            currentHeadHitbox.Size = desiredSize
+            
+            local mesh1 = currentHead:IsA("SpecialMesh") and currentHead or currentHead:FindFirstChildOfClass("SpecialMesh")
+            if not mesh1 then mesh1 = Instance.new("SpecialMesh", currentHead) end
+            mesh1.MeshType = Enum.MeshType.Brick
+            
+            local mesh2 = currentHeadHitbox:IsA("SpecialMesh") and currentHeadHitbox or currentHeadHitbox:FindFirstChildOfClass("SpecialMesh")
+            if not mesh2 then mesh2 = Instance.new("SpecialMesh", currentHeadHitbox) end
+            mesh2.MeshType = Enum.MeshType.Brick
+
+            currentHead.Transparency = 0.6
+            currentHeadHitbox.Transparency = 0.6
+            currentHead.Massless = true
+            currentHeadHitbox.Massless = true
+        end
+    end
+end
+
+local function startScaleLoop()
+    if scaleConnection then scaleConnection:Disconnect() end
+    scaleConnection = RunService.RenderStepped:Connect(function()
+        if not isScaling then
+            scaleConnection:Disconnect()
+            scaleConnection = nil
+            return
+        end
+        updateScaleLogic()
+    end)
+end
+
+local function stopScaleLogic()
+    if scaleConnection then scaleConnection:Disconnect() scaleConnection = nil end
+    local currentTargets = getTargets()
+    for _, target in ipairs(currentTargets) do
+        cleanTargetState(target.head, target.hitbox)
+        originalSizes[target.head] = nil
+        originalSizes[target.hitbox] = nil
+        originalTransparencies[target.head] = nil
+        originalTransparencies[target.hitbox] = nil
+    end
+end
+
+local function startTeleportLoop()
+    if tpConnection then tpConnection:Disconnect() end
+    
+    table.clear(originalCollisionGroup)
+    local character = LocalPlayer.Character
+    if character then
+        for _, part in ipairs(character:GetChildren()) do
+            if part:IsA("BasePart") then
+                originalCollisionGroup[part.Name] = part.CanCollide
+            end
+        end
+    end
+
+    tpConnection = RunService.RenderStepped:Connect(function()
+        if not isTeleporting then
+            tpConnection:Disconnect()
+            tpConnection = nil
+            return
+        end
+
+        local currentTargets = getTargets()
+        local char = LocalPlayer.Character
+        local rootPart = char and char:FindFirstChild("HumanoidRootPart")
+        
+        if char then
+            for _, part in ipairs(char:GetChildren()) do
+                if part:IsA("BasePart") then
+                    if part.CanCollide ~= false then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end
+
+        if rootPart and #currentTargets > 0 then
+            local targetCFrame = rootPart.CFrame * CFrame.new(0, 0, -targetDistance)
+            
+            for _, target in ipairs(currentTargets) do
+                local currentHead = target.head
+                local currentHeadHitbox = target.hitbox
+                local bg = target.model
+                
+                local currentVelocity = currentHead.AssemblyLinearVelocity
+                if currentVelocity.Magnitude > 0 then
+                    currentHead.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                    currentHead.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+                end
+                
+                if currentHead.Parent == bg then
+                    currentHead.CFrame = targetCFrame
+                end
+                if currentHeadHitbox.Parent == bg then
+                    currentHeadHitbox.CFrame = targetCFrame
+                end
+            end
+        end
+    end)
+end
+
+local function stopTeleportLogic()
+    if tpConnection then tpConnection:Disconnect() tpConnection = nil end
+    restoreLocalPlayerCollision()
+end
+
+TabCombat:Toggle({
+    Title = "把怪物传送至面前",
+    Value = false,
+    Callback = function(state)
+        isTeleporting = state
+        if isTeleporting then
+            startTeleportLoop()
+        else
+            stopTeleportLogic()
+        end
+    end
+})
+
+TabCombat:Slider({
+    Title = "传送距离",
+    Value = {
+        Min = 1,
+        Max = 10,
+        Default = 3,
+    },
+    Callback = function(value)
+        targetDistance = value
+    end
+})
+
+TabCombat:Toggle({
+    Title = "头部放大",
+    Value = false,
+    Callback = function(state)
+        isScaling = state
+        if isScaling then
+            startScaleLoop()
+        else
+            stopScaleLogic()
+        end
+    end
+})
+
+TabCombat:Slider({
+    Title = "放大大小",
+    Value = {
+        Min = 2,
+        Max = 15,
+        Default = 4,
+    },
+    Callback = function(value)
+        headScaleSize = value
+        if isScaling then
+            updateScaleLogic()
+        end
+    end
 })
