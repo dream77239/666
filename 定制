@@ -272,7 +272,7 @@ local function WaitForCardKeyValidation()
     mainFrame.Active = true
     mainFrame.Draggable = true
 
-    local validKey = "金主牛逼"
+    local validKey = "5220"
 
     local connection
     connection = btnClose.MouseButton1Click:Connect(function()
