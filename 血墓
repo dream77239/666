@@ -1,0 +1,289 @@
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/china-ui/refs/heads/main/main%20(6).lua"))()
+local Window = WindUI:CreateWindow({
+    Title = "血墓",
+    Icon = "eye",
+    IconThemed = true,
+    Author = "句号",
+    Folder = "CloudHub",
+    Size = UDim2.fromOffset(500, 400),
+    Transparent = true,
+    Theme = "Light",
+    Background = nil,
+    User = {
+        Enabled = true,
+        Callback = function() end,
+        Anonymous = false
+    },
+    SideBarWidth = 200,
+    ScrollBarEnabled = true
+})
+
+local Tab = Window:Tab({  
+    Title = "功能",  
+    Icon = "house",  
+    Locked = false,
+})
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local targetEntity = Workspace:FindFirstChild("Enemies") and Workspace.Enemies:FindFirstChild("Bloodgraven")
+local highlightObj = nil
+local espEnabled = false
+
+local teleportLocations = {
+    {name = "商店", pos = Vector3.new(448.50, 10.74, -93.40)},
+    {name = "教堂", pos = Vector3.new(386.73, 1.20, 282.06)},
+    {name = "仓库", pos = Vector3.new(-588.66, -6.18, 91.02)},
+    {name = "献祭", pos = Vector3.new(-359.29, 7.85, -172.32)},
+    {name = "许愿井", pos = Vector3.new(-260.25, -3.02, -419.43)},
+    {name = "屋子", pos = Vector3.new(-22.72, 22.78, -162.11)},
+    {name = "塔", pos = Vector3.new(246.99, 46.25, -250.93)}
+}
+
+Tab:Toggle({
+    Title = "透视怪物",
+    Value = false,
+    Callback = function(state)
+        espEnabled = state
+        if state then
+            if targetEntity then
+                if not highlightObj or not highlightObj.Parent then
+                    highlightObj = Instance.new("Highlight")
+                    highlightObj.Name = "CustomESP"
+                    highlightObj.FillColor = Color3.fromRGB(255, 0, 0)
+                    highlightObj.OutlineColor = Color3.fromRGB(255, 0, 0)
+                    highlightObj.FillTransparency = 1
+                    highlightObj.OutlineTransparency = 0
+                    highlightObj.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    highlightObj.Parent = targetEntity
+                end
+            end
+        else
+            if highlightObj then
+                highlightObj:Destroy()
+                highlightObj = nil
+            end
+        end
+    end
+})
+
+for _, loc in ipairs(teleportLocations) do
+    Tab:Button({
+        Title = "传送 " .. loc.name,
+        Callback = function()
+            local character = LocalPlayer.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                character.HumanoidRootPart.CFrame = CFrame.new(loc.pos)
+            end
+        end
+    })
+end
+
+RunService.RenderStepped:Connect(function()
+    if espEnabled then
+        if not targetEntity or not targetEntity.Parent then
+            targetEntity = Workspace:FindFirstChild("Enemies") and Workspace.Enemies:FindFirstChild("Bloodgraven")
+        end
+        
+        if targetEntity then
+            if not highlightObj or not highlightObj.Parent then
+                highlightObj = Instance.new("Highlight")
+                highlightObj.Name = "CustomESP"
+                highlightObj.FillColor = Color3.fromRGB(255, 0, 0)
+                highlightObj.OutlineColor = Color3.fromRGB(255, 0, 0)
+                highlightObj.FillTransparency = 1
+                highlightObj.OutlineTransparency = 0
+                highlightObj.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                highlightObj.Parent = targetEntity
+            elseif highlightObj.Parent ~= targetEntity then
+                highlightObj.Parent = targetEntity
+            end
+        end
+    else
+        if highlightObj then
+            highlightObj:Destroy()
+            highlightObj = nil
+        end
+    end
+end)
+
+Tab:Button({
+    Title = "汉化飞行",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/fly/refs/heads/main/README.md"))()
+    end
+})
+
+local tpwalking = false
+local tpwalkSpeed = 5
+
+Tab:Toggle({
+    Title = "速度",
+    Value = false,
+    Callback = function(state)
+        tpwalking = state
+        if state then
+            spawn(function()
+                while tpwalking do
+                    local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                    local hrp = chr:FindFirstChild("HumanoidRootPart")
+                    local hum = chr:FindFirstChildWhichIsA("Humanoid")
+                    local delta = RunService.Heartbeat:Wait()
+                    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
+                        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * tpwalkSpeed * delta)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+Tab:Slider({
+    Title = "速度调节",
+    Value = {
+        Min = 0,
+        Max = 100,
+        Default = tpwalkSpeed,
+    },
+    Callback = function(value)
+        tpwalkSpeed = value
+    end
+})
+
+local OriginalHoldTimes = {}
+local promptConnection
+local heartbeatConnection
+
+Tab:Toggle({
+    Title = "秒互动",
+    Value = false,
+    Callback = function(state)
+        if state then
+            for _, prompt in pairs(workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[prompt] then
+                        OriginalHoldTimes[prompt] = prompt.HoldDuration
+                    end
+                    prompt.HoldDuration = 0
+                end
+            end
+            promptConnection = workspace.DescendantAdded:Connect(function(obj)
+                if obj:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[obj] then
+                        OriginalHoldTimes[obj] = obj.HoldDuration
+                    end
+                    obj.HoldDuration = 0
+                end
+            end)
+            heartbeatConnection = RunService.Heartbeat:Connect(function()
+                for prompt, original in pairs(OriginalHoldTimes) do
+                    if prompt and prompt.Parent then
+                        prompt.HoldDuration = 0
+                    end
+                end
+            end)
+        else
+            if promptConnection then promptConnection:Disconnect() end
+            if heartbeatConnection then heartbeatConnection:Disconnect() end
+            for prompt, original in pairs(OriginalHoldTimes) do
+                if prompt and prompt.Parent then
+                    prompt.HoldDuration = original
+                end
+            end
+        end
+    end
+})
+
+local NoclipEnabled = false
+local NoclipConnection
+
+local function setCharacterCollision(character, state)
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = state
+        end
+    end
+end
+
+local function enableNoclip()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    setCharacterCollision(character, false)
+
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+    end
+
+    NoclipConnection = RunService.Stepped:Connect(function()
+        if not NoclipEnabled then return end
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in ipairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableNoclip()
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+
+    local character = LocalPlayer.Character
+    if character then
+        setCharacterCollision(character, true)
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if NoclipEnabled then
+        task.wait(0.2)
+        enableNoclip()
+    end
+end)
+
+Tab:Toggle({
+    Title = "穿墙",
+    Value = false,
+    Callback = function(state)
+        NoclipEnabled = state
+        if state then
+            enableNoclip()
+        else
+            disableNoclip()
+        end
+    end
+})
+
+Tab:Button({
+    Title = "删除雾",
+    Callback = function()
+        local sky = game:GetService("Lighting"):FindFirstChildOfClass("Sky")
+        if sky then sky:Destroy() end
+    end,
+})
+
+Tab:Toggle({
+    Title = "地图高亮",
+    Value = false,
+    Callback = function(state)
+        local Lighting = game:GetService("Lighting")
+        if state then
+            Lighting.Brightness = 5
+            Lighting.Ambient = Color3.fromRGB(160, 160, 160)
+            Lighting.OutdoorAmbient = Color3.fromRGB(180, 180, 180)
+        else
+            Lighting.Brightness = 1
+            Lighting.Ambient = Color3.fromRGB(70, 70, 70)
+            Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+        end
+    end,
+})
