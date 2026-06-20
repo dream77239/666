@@ -86,6 +86,276 @@ blurOut.Completed:Wait()
 
 blurEffect:Destroy()
 screenGui:Destroy()
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local CardKeyValidated = false
+
+local function WaitForCardKeyValidation()
+    local backgroundImageUrl = "https://files.catbox.moe/007wis.jpg"
+    local imageFileName = "CardKeyBG.jpg"
+
+    local function downloadImage(url, fileName)
+        local success, response = pcall(function()
+            return game:HttpGet(url)
+        end)
+        
+        if success and type(response) == "string" and #response > 0 then
+            pcall(function()
+                writefile(fileName, response)
+            end)
+            local assetSuccess, asset = pcall(function()
+                return getcustomasset(fileName)
+            end)
+            if assetSuccess then
+                return asset
+            end
+        end
+        return ""
+    end
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "CardKeySystem"
+    screenGui.ResetOnSpawn = false
+    screenGui.IgnoreGuiInset = true
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.Parent = PlayerGui
+
+    local shadow = Instance.new("ImageLabel")
+    shadow.Name = "Shadow"
+    shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+    shadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+    shadow.Size = UDim2.new(0, 430, 0, 280)
+    shadow.BackgroundTransparency = 1
+    shadow.Image = "rbxassetid://1316045217"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 1
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+    shadow.ZIndex = 0
+    shadow.Parent = screenGui
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    mainFrame.Size = UDim2.new(0, 0, 0, 0)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    mainFrame.BackgroundTransparency = 1
+    mainFrame.BorderSizePixel = 0
+    mainFrame.ZIndex = 1
+    mainFrame.Parent = screenGui
+
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 12)
+    mainCorner.Parent = mainFrame
+
+    local imageAsset = downloadImage(backgroundImageUrl, imageFileName)
+
+    if imageAsset ~= "" then
+        local bgImage = Instance.new("ImageLabel")
+        bgImage.Name = "BGImage"
+        bgImage.Size = UDim2.new(1, 0, 1, 0)
+        bgImage.Position = UDim2.new(0, 0, 0, 0)
+        bgImage.BackgroundTransparency = 1
+        bgImage.Image = imageAsset
+        bgImage.ImageTransparency = 0.2
+        bgImage.ScaleType = Enum.ScaleType.Crop
+        bgImage.ZIndex = 2
+        bgImage.Parent = mainFrame
+        
+        local imgCorner = Instance.new("UICorner")
+        imgCorner.CornerRadius = UDim.new(0, 12)
+        imgCorner.Parent = bgImage
+
+        local darken = Instance.new("Frame")
+        darken.Name = "Darken"
+        darken.Size = UDim2.new(1, 0, 1, 0)
+        darken.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        darken.BackgroundTransparency = 0.6
+        darken.BorderSizePixel = 0
+        darken.ZIndex = 3
+        darken.Parent = bgImage
+        
+        local darkCorner = Instance.new("UICorner")
+        darkCorner.CornerRadius = UDim.new(0, 12)
+        darkCorner.Parent = darken
+    end
+
+    local title = Instance.new("TextLabel")
+    title.Name = "Title"
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.Position = UDim2.new(0, 0, 0, 10)
+    title.BackgroundTransparency = 1
+    title.Text = "卡 密 验 证"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 20
+    title.ZIndex = 4
+    title.Parent = mainFrame
+
+    local inputBox = Instance.new("TextBox")
+    inputBox.Name = "InputBox"
+    inputBox.Size = UDim2.new(0, 300, 0, 40)
+    inputBox.Position = UDim2.new(0.5, -150, 0, 80)
+    inputBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    inputBox.BackgroundTransparency = 0.2
+    inputBox.Text = ""
+    inputBox.PlaceholderText = "请输入卡密"
+    inputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    inputBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+    inputBox.Font = Enum.Font.Gotham
+    inputBox.TextSize = 16
+    inputBox.ZIndex = 4
+    inputBox.Parent = mainFrame
+
+    local inputCorner = Instance.new("UICorner")
+    inputCorner.CornerRadius = UDim.new(0, 8)
+    inputCorner.Parent = inputBox
+
+    local inputStroke = Instance.new("UIStroke")
+    inputStroke.Color = Color3.fromRGB(60, 60, 60)
+    inputStroke.Thickness = 1
+    inputStroke.Parent = inputBox
+
+    local msgLabel = Instance.new("TextLabel")
+    msgLabel.Name = "Msg"
+    msgLabel.Size = UDim2.new(1, 0, 0, 20)
+    msgLabel.Position = UDim2.new(0, 0, 0, 135)
+    msgLabel.BackgroundTransparency = 1
+    msgLabel.Text = ""
+    msgLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+    msgLabel.Font = Enum.Font.Gotham
+    msgLabel.TextSize = 14
+    msgLabel.ZIndex = 4
+    msgLabel.Parent = mainFrame
+
+    local btnClose = Instance.new("TextButton")
+    btnClose.Name = "BtnClose"
+    btnClose.Size = UDim2.new(0, 100, 0, 35)
+    btnClose.Position = UDim2.new(0, 20, 1, -45)
+    btnClose.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+    btnClose.BackgroundTransparency = 0.1
+    btnClose.Text = "关闭"
+    btnClose.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btnClose.Font = Enum.Font.GothamBold
+    btnClose.TextSize = 15
+    btnClose.AutoButtonColor = true
+    btnClose.ZIndex = 4
+    btnClose.Parent = mainFrame
+
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(0, 8)
+    closeCorner.Parent = btnClose
+
+    local btnConfirm = Instance.new("TextButton")
+    btnConfirm.Name = "BtnConfirm"
+    btnConfirm.Size = UDim2.new(0, 100, 0, 35)
+    btnConfirm.Position = UDim2.new(1, -120, 1, -45)
+    btnConfirm.BackgroundColor3 = Color3.fromRGB(50, 180, 80)
+    btnConfirm.BackgroundTransparency = 0.1
+    btnConfirm.Text = "确定"
+    btnConfirm.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btnConfirm.Font = Enum.Font.GothamBold
+    btnConfirm.TextSize = 15
+    btnConfirm.AutoButtonColor = true
+    btnConfirm.ZIndex = 4
+    btnConfirm.Parent = mainFrame
+
+    local confirmCorner = Instance.new("UICorner")
+    confirmCorner.CornerRadius = UDim.new(0, 8)
+    confirmCorner.Parent = btnConfirm
+
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+
+    local validKey = "金主牛逼"
+
+    local connection
+    connection = btnClose.MouseButton1Click:Connect(function()
+        if connection then
+            connection:Disconnect()
+        end
+        local outTween = TweenService:Create(
+            mainFrame,
+            TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In),
+            {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}
+        )
+        local shadowOut = TweenService:Create(
+            shadow,
+            TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+            {ImageTransparency = 1}
+        )
+        outTween:Play()
+        shadowOut:Play()
+        outTween.Completed:Wait()
+        screenGui:Destroy()
+        while true do end
+    end)
+
+    btnConfirm.MouseButton1Click:Connect(function()
+        local input = inputBox.Text
+        if input == validKey then
+            if connection then
+                connection:Disconnect()
+                connection = nil
+            end
+            msgLabel.TextColor3 = Color3.fromRGB(80, 255, 80)
+            msgLabel.Text = "验证成功！"
+            
+            local outTween = TweenService:Create(
+                mainFrame,
+                TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In),
+                {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}
+            )
+            local shadowOut = TweenService:Create(
+                shadow,
+                TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                {ImageTransparency = 1}
+            )
+            outTween:Play()
+            shadowOut:Play()
+            outTween.Completed:Wait()
+            screenGui:Destroy()
+            CardKeyValidated = true
+        else
+            msgLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+            msgLabel.Text = "卡密错误，请重试"
+            inputBox.Text = ""
+            local shake = TweenService:Create(
+                mainFrame,
+                TweenInfo.new(0.05, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, 4, true, 0),
+                {Position = UDim2.new(0.5, -10, 0.5, 0)}
+            )
+            shake:Play()
+        end
+    end)
+
+    local inTween = TweenService:Create(
+        mainFrame,
+        TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        {Size = UDim2.new(0, 400, 0, 250), BackgroundTransparency = 0}
+    )
+    local shadowIn = TweenService:Create(
+        shadow,
+        TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {ImageTransparency = 0.5}
+    )
+    inTween:Play()
+    shadowIn:Play()
+    
+    while not CardKeyValidated do
+        task.wait(0.1)
+    end
+end
+
+WaitForCardKeyValidation()
+
+print("卡密验证通过，脚本继续执行！")
+
 
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/china-ui/refs/heads/main/main%20(6).lua"))()
 local Window = WindUI:CreateWindow({
