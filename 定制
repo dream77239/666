@@ -3168,6 +3168,1367 @@ RunService.RenderStepped:Connect(function()
 end)
 
 end
+local function chain()
+Window:Divider()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Pixeluted/adoniscries/main/Source.lua", true))()
+local Tab = Window:Tab({
+    Title = "实用功能",
+    Icon = "hammer",
+    Locked = false,
+})
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local combatStaminaEnabled = false
+local staminaEnabled = false
+
+local combatLoop = nil
+local staminaLoop = nil
+
+local function setCombatStamina(value)
+    local char = workspace:FindFirstChild(LocalPlayer.Name)
+    if char and char:FindFirstChild("Stats") then
+        local stat = char.Stats:FindFirstChild("CombatStamina")
+        if stat then
+            stat.Value = value
+        end
+    end
+end
+
+local function setStamina(value)
+    local char = workspace:FindFirstChild(LocalPlayer.Name)
+    if char and char:FindFirstChild("Stats") then
+        local stat = char.Stats:FindFirstChild("Stamina")
+        if stat then
+            stat.Value = value
+        end
+    end
+end
+
+local RunService = game:GetService("RunService")
+
+local function startCombatLoop()
+    if combatLoop then return end
+    combatLoop = RunService.Heartbeat:Connect(function()
+        if combatStaminaEnabled then
+            setCombatStamina(100)
+        end
+    end)
+end
+
+local function startStaminaLoop()
+    if staminaLoop then return end
+    staminaLoop = RunService.Heartbeat:Connect(function()
+        if staminaEnabled then
+            setStamina(100)
+        end
+    end)
+end
+
+local function stopCombatLoop()
+    if combatLoop then
+        combatLoop:Disconnect()
+        combatLoop = nil
+    end
+end
+
+local function stopStaminaLoop()
+    if staminaLoop then
+        staminaLoop:Disconnect()
+        staminaLoop = nil
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(1)
+    if combatStaminaEnabled then
+        setCombatStamina(100)
+    end
+    if staminaEnabled then
+        setStamina(100)
+    end
+end)
+
+Tab:Toggle({
+    Title = "无限战斗体力",
+    Value = false,
+    Callback = function(state)
+        combatStaminaEnabled = state
+        if state then
+            startCombatLoop()
+        else
+            stopCombatLoop()
+        end
+    end
+})
+
+Tab:Toggle({
+    Title = "无限体力",
+    Value = false,
+    Callback = function(state)
+        staminaEnabled = state
+        if state then
+            startStaminaLoop()
+        else
+            stopStaminaLoop()
+        end
+    end
+})
+local Lighting = game:GetService("Lighting")
+
+local originalLighting = {
+    Brightness = Lighting.Brightness,
+    ClockTime = Lighting.ClockTime,
+    Ambient = Lighting.Ambient,
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+    ExposureCompensation = Lighting.ExposureCompensation,
+    FogEnd = Lighting.FogEnd,
+    FogStart = Lighting.FogStart,
+    GlobalShadows = Lighting.GlobalShadows,
+}
+
+local highlightLoop
+
+Tab:Toggle({
+    Title = "高亮",
+    Default = false,
+    Callback = function(state)
+        if state then
+            highlightLoop = task.spawn(function()
+                while task.wait(0.5) do
+                    Lighting.Brightness = 2
+                    Lighting.ClockTime = 13.5
+                    Lighting.Ambient = Color3.new(0.6, 0.6, 0.6)
+                    Lighting.OutdoorAmbient = Color3.new(0.6, 0.6, 0.6)
+                    Lighting.ExposureCompensation = 0.5
+                    Lighting.FogEnd = 100000
+                    Lighting.FogStart = 0
+                    Lighting.GlobalShadows = false
+                end
+            end)
+        else
+            if highlightLoop then
+                task.cancel(highlightLoop)
+                highlightLoop = nil
+            end
+            for k, v in pairs(originalLighting) do
+                Lighting[k] = v
+            end
+        end
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+
+local NoclipEnabled = false
+local NoclipConnection
+
+local function setCharacterCollision(character, state)
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = state
+        end
+    end
+end
+
+local function enableNoclip()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    setCharacterCollision(character, false)
+
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+    end
+
+    NoclipConnection = RunService.Stepped:Connect(function()
+        if not NoclipEnabled then return end
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in ipairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableNoclip()
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+
+    local character = LocalPlayer.Character
+    if character then
+        setCharacterCollision(character, true)
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if NoclipEnabled then
+        task.wait(0.2)
+        enableNoclip()
+    end
+end)
+
+Tab:Toggle({
+    Title = "穿墙",
+    Value = false,
+    Callback = function(state)
+        NoclipEnabled = state
+        if state then
+            enableNoclip()
+        else
+            disableNoclip()
+        end
+    end
+})
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+
+local AutoRepairEnabled = false
+local AutoRepairRunning = false
+
+local function autoRepairLoop()
+    if AutoRepairRunning then return end
+    AutoRepairRunning = true
+    task.spawn(function()
+        while AutoRepairEnabled do
+            local powerStation = Workspace:FindFirstChild("GameStuff", true) 
+                and Workspace.GameStuff:FindFirstChild("GameSections", true) 
+                and Workspace.GameStuff.GameSections:FindFirstChild("POWERSTATION")
+            
+            if powerStation then
+                local hitbox = powerStation:FindFirstChild("Hitbox")
+                local prompt = hitbox and hitbox:FindFirstChild("ProximityPrompt")
+                local alert = powerStation:FindFirstChild("AlertUI")
+                local gui = alert and alert:FindFirstChild("GUI")
+
+                if prompt and prompt.Enabled and gui and not gui.Enabled then
+                    local isNearby = false
+                    for _, p in ipairs(Players:GetPlayers()) do
+                        local c = p.Character
+                        local pp = c and c.PrimaryPart
+                        if pp and (pp.Position - hitbox.Position).Magnitude <= 15 then
+                            isNearby = true
+                            break
+                        end
+                    end
+                    
+                    if isNearby then
+                        pcall(function()
+                            fireproximityprompt(prompt, 0)
+                        end)
+                    end
+                end
+            end
+            task.wait(0.3)
+        end
+        AutoRepairRunning = false
+    end)
+end
+
+Tab:Toggle({
+    Title = "自动修复电力系统",
+    Desc = "这个功能你使用需要延迟低一点(大概140ping以下)不然的话你可能会被电",
+    Value = false,
+    Callback = function(v)
+        AutoRepairEnabled = v
+        if v then
+            autoRepairLoop()
+        end
+    end
+})
+
+task.spawn(function()
+    while task.wait(1) do
+        local powerStation = Workspace:FindFirstChild("GameStuff", true) 
+            and Workspace.GameStuff:FindFirstChild("GameSections", true) 
+            and Workspace.GameStuff.GameSections:FindFirstChild("POWERSTATION")
+        
+        if powerStation then
+            local hitbox = powerStation:FindFirstChild("Hitbox")
+            local prompt = hitbox and hitbox:FindFirstChild("ProximityPrompt")
+            local alert = powerStation:FindFirstChild("AlertUI")
+            local gui = alert and alert:FindFirstChild("GUI")
+
+            if prompt and gui then
+                prompt:GetPropertyChangedSignal("Enabled"):Connect(function()
+                    if AutoRepairEnabled then autoRepairLoop() end
+                end)
+                gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+                    if AutoRepairEnabled then autoRepairLoop() end
+                end)
+                break
+            end
+        end
+    end
+end)
+local enabled = false
+
+local function setChatVisible(state)
+	enabled = state
+	local config = game:GetService("TextChatService"):FindFirstChild("ChatWindowConfiguration")
+	if config and config:IsA("ChatWindowConfiguration") then
+		config.Enabled = state
+	end
+end
+
+task.spawn(function()
+	while task.wait(1) do
+		if enabled then
+			setChatVisible(true)
+		else
+			setChatVisible(false)
+		end
+	end
+end)
+
+Tab:Toggle({
+	Title = "显示聊天框",
+	Value = false,
+	Callback = function(state)
+		enabled = state
+	end,
+})
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local toggleState = false
+
+local function applyCameraMode(state)
+	if state then
+		LocalPlayer.CameraMaxZoomDistance = 99999
+		LocalPlayer.CameraMode = Enum.CameraMode.Classic
+	else
+		LocalPlayer.CameraMaxZoomDistance = 16
+		LocalPlayer.CameraMode = Enum.CameraMode.LockFirstPerson
+	end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+	wait(1)
+	if not toggleState then
+		applyCameraMode(false)
+	else
+		applyCameraMode(true)
+	end
+end)
+
+Tab:Toggle({
+	Title = "强制第三人称",
+	Value = false,
+	Callback = function(state)
+		toggleState = state
+		applyCameraMode(state)
+	end
+})
+Tab:Button({
+    Title = "删除雾",
+    Desc = nil,
+    Locked = false,
+    Callback = function()
+        local lighting = game:GetService("Lighting")
+        if lighting:FindFirstChild("Rainy") then
+            lighting.Rainy:Destroy()
+        end
+    end
+})
+Tab:Toggle({
+    Title = "绕过捕兽夹放置限制",
+    Value = false,
+    Callback = function(state)
+        _G.BypassBearTrap = state
+        if state then
+            task.spawn(function()
+                while _G.BypassBearTrap do
+                    task.wait()
+                    local stats = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerStats")
+                    if stats then
+                        stats:SetAttribute("BearTrapPlaced", false)
+                    end
+                end
+            end)
+        else
+            local stats = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerStats")
+            if stats then
+                stats:SetAttribute("BearTrapPlaced", true)
+            end
+        end
+    end,
+})
+
+local v = game:GetService("ReplicatedStorage"):WaitForChild("Assets"):WaitForChild("Client"):WaitForChild("Movement"):WaitForChild("DisableSmoothness")
+
+Tab:Toggle({
+    Title = "取消走路/跑步惯性",
+    Value = false,
+    Callback = function(state)
+        v.Value = state
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local tpwalking = false
+local tpwalkSpeed = 5
+
+Tab:Toggle({
+    Title = "速度",
+    Value = false,
+    Callback = function(state)
+        tpwalking = state
+        if state then
+            spawn(function()
+                while tpwalking do
+                    local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                    local hrp = chr:FindFirstChild("HumanoidRootPart")
+                    local hum = chr:FindFirstChildWhichIsA("Humanoid")
+                    local delta = RunService.Heartbeat:Wait()
+                    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
+                        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * tpwalkSpeed * delta)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+Tab:Slider({
+    Title = "速度调节",
+    Value = {
+        Min = 0,
+        Max = 50,
+        Default = tpwalkSpeed,
+    },
+    Callback = function(value)
+        tpwalkSpeed = value
+    end
+})
+local repelEnabled = false
+local repelRange = 50
+local repelKeepDist = 50
+local repelConnection = nil
+
+local CHAIN_PATH = {"Misc", "AI", "CHAIN"}
+
+local function getChain()
+    local obj = workspace
+    for _, name in ipairs(CHAIN_PATH) do
+        obj = obj:FindFirstChild(name)
+        if not obj then return nil end
+    end
+    return obj
+end
+
+local function getChainPos()
+    local chain = getChain()
+    if not chain then return nil end
+    if chain:IsA("BasePart") then return chain.Position end
+    local hrp = chain:FindFirstChild("HumanoidRootPart")
+    if hrp then return hrp.Position end
+    for _, d in ipairs(chain:GetDescendants()) do
+        if d:IsA("BasePart") then return d.Position end
+    end
+    return nil
+end
+Tab:Toggle({
+    Title = "自动远离chain",
+    Value = false,
+    Callback = function(state)
+        repelEnabled = state
+        if repelConnection then
+            repelConnection:Disconnect()
+            repelConnection = nil
+        end
+        if not state then return end
+        local RunService = game:GetService("RunService")
+        repelConnection = RunService.Heartbeat:Connect(function()
+            if not repelEnabled then return end
+            local hrp = getRootPart()
+            if not hrp then return end
+            local chainPos = getChainPos()
+            if not chainPos then return end
+            local myPos = hrp.Position
+            local diff = Vector3.new(myPos.X - chainPos.X, 0, myPos.Z - chainPos.Z)
+            local dist = diff.Magnitude
+            if dist < repelRange then
+                local pushDir = diff.Magnitude > 0.1 and diff.Unit or Vector3.new(1, 0, 0)
+                local targetPos = chainPos + pushDir * repelKeepDist
+                local groundY = getGroundY(targetPos)
+                local safeY = math.min(groundY + 3, myPos.Y + 10)
+                hrp.CFrame = CFrame.new(Vector3.new(targetPos.X, safeY, targetPos.Z))
+            end
+        end)
+    end,
+})
+Tab:Slider({
+    Title = "chain隔离距离",
+    Value = {
+        Min = 20,
+        Max = 200,
+        Default = 50,
+    },
+    Callback = function(val)
+        repelKeepDist = val
+        repelRange = val
+    end,
+})
+local Tab = Window:Tab({  
+    Title = "透视",  
+    Icon = "eye",  
+    Locked = false,
+})
+local RunService = game:GetService("RunService")
+
+local chainESPEnabled = false
+local chainESPConnection = nil
+local currentChain = nil
+
+local function createChainESP(chain)
+    if not chain:FindFirstChild("Highlight") then
+        local h = Instance.new("Highlight")
+        h.Name = "Highlight"
+        h.Adornee = chain
+        h.FillColor = Color3.fromRGB(255, 0, 0)
+        h.FillTransparency = 0.8
+        h.OutlineColor = Color3.fromRGB(255, 60, 60)
+        h.OutlineTransparency = 0
+        h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        h.Parent = chain
+    end
+
+    if not chain:FindFirstChild("NameGui") then
+        local gui = Instance.new("BillboardGui")
+        gui.Name = "NameGui"
+        gui.Size = UDim2.new(0, 150, 0, 30)
+        gui.StudsOffset = Vector3.new(0, 5, 0)
+        gui.Adornee = chain
+        gui.AlwaysOnTop = true
+        gui.LightInfluence = 0
+        gui.Parent = chain
+
+        local titleLabel = Instance.new("TextLabel")
+        titleLabel.Name = "TitleLabel"
+        titleLabel.Size = UDim2.new(1, 0, 0.5, 0)
+        titleLabel.Position = UDim2.new(0, 0, 0, 0)
+        titleLabel.Text = "CHAIN"
+        titleLabel.TextColor3 = Color3.new(1, 0, 0)
+        titleLabel.TextScaled = true
+        titleLabel.Font = Enum.Font.GothamBold
+        titleLabel.TextSize = 10
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.Parent = gui
+
+        local attrLabel = Instance.new("TextLabel")
+        attrLabel.Name = "AttrLabel"
+        attrLabel.Size = UDim2.new(1, 0, 0.5, 0)
+        attrLabel.Position = UDim2.new(0, 0, 0.5, 0)
+        attrLabel.RichText = true
+        attrLabel.Text = ""
+        attrLabel.TextColor3 = Color3.new(1, 1, 1)
+        attrLabel.TextScaled = true
+        attrLabel.Font = Enum.Font.Gotham
+        attrLabel.TextSize = 8
+        attrLabel.BackgroundTransparency = 1
+        attrLabel.Parent = gui
+    end
+end
+
+local function updateChainAttributes(chain)
+    local gui = chain:FindFirstChild("NameGui")
+    if gui then
+        local attrLabel = gui:FindFirstChild("AttrLabel")
+        if attrLabel then
+            local anger = chain:GetAttribute("Anger") or 0
+            local burst = chain:GetAttribute("Burst") or 0
+            local choke = chain:GetAttribute("ChokeMeter") or 0
+            attrLabel.Text = string.format(
+                '[血月度: <font color="rgb(255,255,255)">%.0f%%</font>] [捶地: <font color="rgb(255,255,255)">%.0f%%</font>] [掐脖: <font color="rgb(255,255,255)">%.0f%%</font>]',
+                anger, burst, choke
+            )
+        end
+    end
+end
+
+local function removeChainESP(chain)
+    if chain then
+        local highlight = chain:FindFirstChild("Highlight")
+        if highlight then highlight:Destroy() end
+        local nameGui = chain:FindFirstChild("NameGui")
+        if nameGui then nameGui:Destroy() end
+    end
+end
+
+local function refreshChainESP()
+    local chain = workspace:FindFirstChild("Misc")
+        and workspace.Misc:FindFirstChild("AI")
+        and workspace.Misc.AI:FindFirstChild("CHAIN")
+    if chain then
+        if currentChain ~= chain then
+            if currentChain then removeChainESP(currentChain) end
+            currentChain = chain
+            createChainESP(chain)
+        end
+        if not chain:FindFirstChild("Highlight") or not chain:FindFirstChild("NameGui") then
+            createChainESP(chain)
+        end
+        updateChainAttributes(chain)
+    else
+        if currentChain then
+            removeChainESP(currentChain)
+            currentChain = nil
+        end
+    end
+end
+
+local function startChainESP()
+    if chainESPEnabled then return end
+    chainESPEnabled = true
+    chainESPConnection = RunService.Heartbeat:Connect(refreshChainESP)
+end
+
+local function stopChainESP()
+    chainESPEnabled = false
+    if chainESPConnection then
+        chainESPConnection:Disconnect()
+        chainESPConnection = nil
+    end
+    if currentChain then
+        removeChainESP(currentChain)
+        currentChain = nil
+    end
+end
+
+Tab:Toggle({
+    Title = "透视chain",
+    Value = false,
+    Callback = function(state)
+        if state then
+            startChainESP()
+        else
+            stopChainESP()
+        end
+    end
+})
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local playerESPEnabled = false
+local playerESPConnections = {}
+local trackedCharacters = {}
+
+local function addESP(character, player)
+    if not character or not player then return end
+
+    if not character:FindFirstChild("Highlight") then
+        local h = Instance.new("Highlight")
+        h.Name = "Highlight"
+        h.Adornee = character
+        h.FillColor = Color3.fromRGB(0, 255, 0)
+        h.FillTransparency = 0.7
+        h.OutlineColor = Color3.fromRGB(0, 200, 0)
+        h.OutlineTransparency = 0.1
+        h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        h.Parent = character
+    end
+
+    if not character:FindFirstChild("NameGui") then
+        local gui = Instance.new("BillboardGui")
+        gui.Name = "NameGui"
+        gui.Size = UDim2.new(0, 50, 0, 10)
+        gui.StudsOffset = Vector3.new(0, 3.5, 0)
+        local adornee = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChildWhichIsA("BasePart")
+        gui.Adornee = adornee
+        gui.AlwaysOnTop = true
+        gui.LightInfluence = 0
+        gui.Parent = character
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.Text = player.Name
+        label.TextColor3 = Color3.new(0, 1, 0)
+        label.TextScaled = true
+        label.Font = Enum.Font.Gotham
+        label.BackgroundTransparency = 1
+        label.TextSize = 10
+        label.Parent = gui
+    end
+end
+
+local function removeESP(character)
+    if not character then return end
+    local highlight = character:FindFirstChild("Highlight")
+    if highlight then highlight:Destroy() end
+
+    local nameGui = character:FindFirstChild("NameGui")
+    if nameGui then nameGui:Destroy() end
+end
+
+local function onCharacterAdded(player, character)
+    if not playerESPEnabled then return end
+    task.delay(0.3, function()
+        if playerESPEnabled and character and character.Parent then
+            addESP(character, player)
+        end
+    end)
+end
+
+local function trackPlayer(player)
+    if player == LocalPlayer then return end
+    if trackedCharacters[player] then return end
+    trackedCharacters[player] = true
+
+    if player.Character then
+        onCharacterAdded(player, player.Character)
+    end
+
+    local conn = player.CharacterAdded:Connect(function(character)
+        onCharacterAdded(player, character)
+    end)
+    table.insert(playerESPConnections, conn)
+
+    local removeConn = player.AncestryChanged:Connect(function()
+        if not player:IsDescendantOf(game) then
+            trackedCharacters[player] = nil
+        end
+    end)
+    table.insert(playerESPConnections, removeConn)
+end
+
+local function startPlayerESP()
+    if playerESPEnabled then return end
+    playerESPEnabled = true
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        trackPlayer(player)
+    end
+
+    local conn = Players.PlayerAdded:Connect(trackPlayer)
+    table.insert(playerESPConnections, conn)
+end
+
+local function stopPlayerESP()
+    playerESPEnabled = false
+
+    for _, conn in ipairs(playerESPConnections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    table.clear(playerESPConnections)
+    table.clear(trackedCharacters)
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            removeESP(player.Character)
+        end
+    end
+end
+
+Tab:Toggle({
+    Title = "透视玩家",
+    Default = false,
+    Callback = function(state)
+        if state then
+            startPlayerESP()
+        else
+            stopPlayerESP()
+        end
+    end
+})
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+
+local ScrapFolder = Workspace:WaitForChild("Misc"):WaitForChild("Zones"):WaitForChild("LootingItems"):WaitForChild("Scrap")
+local ESPColor = Color3.fromRGB(191, 0, 255)
+local ChildAddedConnection
+
+local function ApplyESP(object)
+    if not object:FindFirstChild("ScrapHighlight") then
+        local Highlight = Instance.new("Highlight")
+        Highlight.Name = "ScrapHighlight"
+        Highlight.FillColor = ESPColor
+        Highlight.OutlineColor = Color3.new(1, 1, 1)
+        Highlight.FillTransparency = 0.5
+        Highlight.OutlineTransparency = 0
+        Highlight.Adornee = object
+        Highlight.Parent = object
+        Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    end
+end
+
+local function RemoveESP()
+    for _, item in ipairs(ScrapFolder:GetChildren()) do
+        local hl = item:FindFirstChild("ScrapHighlight")
+        if hl then
+            hl:Destroy()
+        end
+    end
+end
+
+Tab:Toggle({
+    Title = "透视废铁",
+    Value = false,
+    Callback = function(state)
+        if state then
+            for _, item in ipairs(ScrapFolder:GetChildren()) do
+                ApplyESP(item)
+            end
+            
+            ChildAddedConnection = ScrapFolder.ChildAdded:Connect(function(item)
+                task.wait(0.1)
+                ApplyESP(item)
+            end)
+        else
+            if ChildAddedConnection then
+                ChildAddedConnection:Disconnect()
+                ChildAddedConnection = nil
+            end
+            RemoveESP()
+        end
+    end,
+})
+Tab:Button({
+    Title = "查看晚上回合时间",
+    Callback = function()
+        local UIS = game:GetService("UserInputService")
+        local Players = game:GetService("Players")
+        local player = Players.LocalPlayer
+        local pGui = player:WaitForChild("PlayerGui")
+
+        if pGui:FindFirstChild("MiniStatsGui") then
+            pGui.MiniStatsGui:Destroy()
+        end
+
+        local screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "MiniStatsGui"
+        screenGui.IgnoreGuiInset = true
+        screenGui.ResetOnSpawn = false
+        screenGui.Parent = pGui
+
+        local mainFrame = Instance.new("Frame")
+        mainFrame.Size = UDim2.new(0, 140, 0, 75)
+        mainFrame.Position = UDim2.new(0.5, -70, 0.2, 0)
+        mainFrame.BackgroundColor3 = Color3.fromRGB(25, 27, 32)
+        mainFrame.BorderSizePixel = 0
+        mainFrame.ClipsDescendants = true
+        mainFrame.Parent = screenGui
+
+        local uiCorner = Instance.new("UICorner")
+        uiCorner.CornerRadius = UDim.new(0, 6)
+        uiCorner.Parent = mainFrame
+
+        local uiStroke = Instance.new("UIStroke")
+        uiStroke.Thickness = 1.5
+        uiStroke.Color = Color3.fromRGB(120, 150, 255)
+        uiStroke.Parent = mainFrame
+
+        local titleBar = Instance.new("Frame")
+        titleBar.Size = UDim2.new(1, 0, 0, 22)
+        titleBar.BackgroundColor3 = Color3.fromRGB(35, 40, 50)
+        titleBar.BorderSizePixel = 0
+        titleBar.Parent = mainFrame
+
+        local titleLabel = Instance.new("TextLabel")
+        titleLabel.Size = UDim2.new(1, -45, 1, 0)
+        titleLabel.Position = UDim2.new(0, 8, 0, 0)
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.Text = "信息显示"
+        titleLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+        titleLabel.TextSize = 11
+        titleLabel.Font = Enum.Font.GothamBold
+        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        titleLabel.Parent = titleBar
+
+        local closeBtn = Instance.new("TextButton")
+        closeBtn.Size = UDim2.new(0, 20, 0, 20)
+        closeBtn.Position = UDim2.new(1, -22, 0, 1)
+        closeBtn.BackgroundTransparency = 1
+        closeBtn.Text = "×"
+        closeBtn.TextColor3 = Color3.fromRGB(255, 90, 90)
+        closeBtn.TextSize = 18
+        closeBtn.Font = Enum.Font.GothamBold
+        closeBtn.Parent = titleBar
+
+        local minBtn = Instance.new("TextButton")
+        minBtn.Size = UDim2.new(0, 20, 0, 20)
+        minBtn.Position = UDim2.new(1, -42, 0, 1)
+        minBtn.BackgroundTransparency = 1
+        minBtn.Text = "—"
+        minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        minBtn.TextSize = 12
+        minBtn.Font = Enum.Font.GothamBold
+        minBtn.Parent = titleBar
+
+        local content = Instance.new("Frame")
+        content.Size = UDim2.new(1, 0, 1, -22)
+        content.Position = UDim2.new(0, 0, 0, 22)
+        content.BackgroundTransparency = 1
+        content.Parent = mainFrame
+
+        local layout = Instance.new("UIListLayout")
+        layout.Padding = UDim.new(0, 2)
+        layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        layout.VerticalAlignment = Enum.VerticalAlignment.Center
+        layout.Parent = content
+
+        local function CreateText()
+            local t = Instance.new("TextLabel")
+            t.Size = UDim2.new(0.9, 0, 0, 20)
+            t.BackgroundTransparency = 1
+            t.TextColor3 = Color3.fromRGB(255, 255, 255)
+            t.TextSize = 11
+            t.Font = Enum.Font.GothamMedium
+            t.TextXAlignment = Enum.TextXAlignment.Left
+            t.Parent = content
+            return t
+        end
+
+        local rtLabel = CreateText()
+        local pwLabel = CreateText()
+
+        task.spawn(function()
+            local folder = workspace:WaitForChild("GameStuff", 20):WaitForChild("Values", 20)
+            
+            local function Update()
+                local rt = folder:GetAttribute("RoundTime")
+                if rt == nil and folder:FindFirstChild("RoundTime") then rt = folder.RoundTime.Value end
+                
+                local pw = folder:GetAttribute("Power")
+                if pw == nil and folder:FindFirstChild("Power") then pw = folder.Power.Value end
+                
+                rtLabel.Text = "晚上回合时间: " .. tostring(rt or "...")
+                
+                local formattedPower = "..."
+                if pw then
+                    if type(pw) == "number" then
+                        formattedPower = string.format("%.2f", pw)
+                    else
+                        formattedPower = tostring(pw)
+                    end
+                end
+                pwLabel.Text = "发电站能量: " .. formattedPower
+            end
+
+            folder.AttributeChanged:Connect(Update)
+            for _, v in pairs(folder:GetChildren()) do
+                if v:IsA("ValueBase") then v.Changed:Connect(Update) end
+            end
+            Update()
+        end)
+
+        local dragStart, startPos, dragging
+        titleBar.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = mainFrame.Position
+            end
+        end)
+
+        UIS.InputChanged:Connect(function(input)
+            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                local delta = input.Position - dragStart
+                mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+
+        UIS.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = false
+            end
+        end)
+
+        local isMin = false
+        minBtn.MouseButton1Click:Connect(function()
+            isMin = not isMin
+            content.Visible = not isMin
+            mainFrame:TweenSize(isMin and UDim2.new(0, 140, 0, 22) or UDim2.new(0, 140, 0, 75), "Out", "Quart", 0.2, true)
+            minBtn.Text = isMin and "+" or "—"
+        end)
+
+        closeBtn.MouseButton1Click:Connect(function()
+            screenGui:Destroy()
+        end)
+    end
+})
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local pGui = player:WaitForChild("PlayerGui")
+
+local chainESPEnabled = false
+local chainESPConnection = nil
+local currentChain = nil
+
+local function createChainESP(chain)
+    if not chain:FindFirstChild("Highlight") then
+        local h = Instance.new("Highlight")
+        h.Name = "Highlight"
+        h.Adornee = chain
+        h.FillColor = Color3.fromRGB(255, 0, 0)
+        h.FillTransparency = 0.8
+        h.OutlineColor = Color3.fromRGB(255, 60, 60)
+        h.OutlineTransparency = 0
+        h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        h.Parent = chain
+    end
+
+    if not chain:FindFirstChild("NameGui") then
+        local gui = Instance.new("BillboardGui")
+        gui.Name = "NameGui"
+        gui.Size = UDim2.new(0, 150, 0, 30)
+        gui.StudsOffset = Vector3.new(0, 5, 0)
+        gui.Adornee = chain
+        gui.AlwaysOnTop = true
+        gui.LightInfluence = 0
+        gui.Parent = chain
+
+        local titleLabel = Instance.new("TextLabel")
+        titleLabel.Name = "TitleLabel"
+        titleLabel.Size = UDim2.new(1, 0, 0.5, 0)
+        titleLabel.Position = UDim2.new(0, 0, 0, 0)
+        titleLabel.Text = "CHAIN"
+        titleLabel.TextColor3 = Color3.new(1, 0, 0)
+        titleLabel.TextScaled = true
+        titleLabel.Font = Enum.Font.GothamBold
+        titleLabel.TextSize = 10
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.Parent = gui
+
+        local attrLabel = Instance.new("TextLabel")
+        attrLabel.Name = "AttrLabel"
+        attrLabel.Size = UDim2.new(1, 0, 0.5, 0)
+        attrLabel.Position = UDim2.new(0, 0, 0.5, 0)
+        attrLabel.RichText = true
+        attrLabel.Text = ""
+        attrLabel.TextColor3 = Color3.new(1, 1, 1)
+        attrLabel.TextScaled = true
+        attrLabel.Font = Enum.Font.Gotham
+        attrLabel.TextSize = 8
+        attrLabel.BackgroundTransparency = 1
+        attrLabel.Parent = gui
+    end
+end
+
+local function updateChainAttributes(chain, screenLabels)
+    local gui = chain:FindFirstChild("NameGui")
+    if gui then
+        local attrLabel = gui:FindFirstChild("AttrLabel")
+        if attrLabel then
+            local anger = chain:GetAttribute("Anger") or 0
+            local burst = chain:GetAttribute("Burst") or 0
+            local choke = chain:GetAttribute("ChokeMeter") or 0
+            attrLabel.Text = string.format(
+                '[血月度: <font color="rgb(255,255,255)">%.0f%%</font>] [捶地: <font color="rgb(255,255,255)">%.0f%%</font>] [掐脖: <font color="rgb(255,255,255)">%.0f%%</font>]',
+                anger, burst, choke
+            )
+
+            if screenLabels then
+                screenLabels.anger.Text = string.format("血月度: %.0f%%", anger)
+                screenLabels.burst.Text = string.format("捶地: %.0f%%", burst)
+                screenLabels.choke.Text = string.format("掐脖: %.0f%%", choke)
+            end
+        end
+    end
+end
+
+local function removeChainESP(chain)
+    if chain then
+        local highlight = chain:FindFirstChild("Highlight")
+        if highlight then highlight:Destroy() end
+        local nameGui = chain:FindFirstChild("NameGui")
+        if nameGui then nameGui:Destroy() end
+    end
+end
+
+local function refreshChainESP(screenLabels)
+    local chain = workspace:FindFirstChild("Misc")
+        and workspace.Misc:FindFirstChild("AI")
+        and workspace.Misc.AI:FindFirstChild("CHAIN")
+    if chain then
+        if currentChain ~= chain then
+            if currentChain then removeChainESP(currentChain) end
+            currentChain = chain
+            createChainESP(chain)
+        end
+        if not chain:FindFirstChild("Highlight") or not chain:FindFirstChild("NameGui") then
+            createChainESP(chain)
+        end
+        updateChainAttributes(chain, screenLabels)
+    else
+        if currentChain then
+            removeChainESP(currentChain)
+            currentChain = nil
+        end
+    end
+end
+
+local function createScreenWindow()
+    if pGui:FindFirstChild("ChainESPGui") then
+        pGui.ChainESPGui:Destroy()
+    end
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "ChainESPGui"
+    screenGui.IgnoreGuiInset = true
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = pGui
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 140, 0, 95)
+    mainFrame.Position = UDim2.new(0.5, -70, 0.2, 0)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 27, 32)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.ClipsDescendants = true
+    mainFrame.Parent = screenGui
+
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 6)
+    uiCorner.Parent = mainFrame
+
+    local uiStroke = Instance.new("UIStroke")
+    uiStroke.Thickness = 1.5
+    uiStroke.Color = Color3.fromRGB(120, 150, 255)
+    uiStroke.Parent = mainFrame
+
+    local titleBar = Instance.new("Frame")
+    titleBar.Size = UDim2.new(1, 0, 0, 22)
+    titleBar.BackgroundColor3 = Color3.fromRGB(35, 40, 50)
+    titleBar.BorderSizePixel = 0
+    titleBar.Parent = mainFrame
+
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -45, 1, 0)
+    titleLabel.Position = UDim2.new(0, 8, 0, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "chain信息"
+    titleLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+    titleLabel.TextSize = 11
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = titleBar
+
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 20, 0, 20)
+    closeBtn.Position = UDim2.new(1, -22, 0, 1)
+    closeBtn.BackgroundTransparency = 1
+    closeBtn.Text = "×"
+    closeBtn.TextColor3 = Color3.fromRGB(255, 90, 90)
+    closeBtn.TextSize = 18
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.Parent = titleBar
+
+    local minBtn = Instance.new("TextButton")
+    minBtn.Size = UDim2.new(0, 20, 0, 20)
+    minBtn.Position = UDim2.new(1, -42, 0, 1)
+    minBtn.BackgroundTransparency = 1
+    minBtn.Text = "—"
+    minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    minBtn.TextSize = 12
+    minBtn.Font = Enum.Font.GothamBold
+    minBtn.Parent = titleBar
+
+    local content = Instance.new("Frame")
+    content.Size = UDim2.new(1, 0, 1, -22)
+    content.Position = UDim2.new(0, 0, 0, 22)
+    content.BackgroundTransparency = 1
+    content.Parent = mainFrame
+
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 2)
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    layout.VerticalAlignment = Enum.VerticalAlignment.Center
+    layout.Parent = content
+
+    local function CreateText()
+        local t = Instance.new("TextLabel")
+        t.Size = UDim2.new(0.9, 0, 0, 20)
+        t.BackgroundTransparency = 1
+        t.TextColor3 = Color3.fromRGB(255, 255, 255)
+        t.TextSize = 11
+        t.Font = Enum.Font.GothamMedium
+        t.TextXAlignment = Enum.TextXAlignment.Left
+        t.Parent = content
+        return t
+    end
+
+    local angerLabel = CreateText()
+    local burstLabel = CreateText()
+    local chokeLabel = CreateText()
+
+    local screenLabels = {
+        anger = angerLabel,
+        burst = burstLabel,
+        choke = chokeLabel
+    }
+
+    local dragStart, startPos, dragging
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = mainFrame.Position
+        end
+    end)
+
+    UIS.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+
+    local isMin = false
+    minBtn.MouseButton1Click:Connect(function()
+        isMin = not isMin
+        content.Visible = not isMin
+        mainFrame:TweenSize(isMin and UDim2.new(0, 140, 0, 22) or UDim2.new(0, 140, 0, 95), "Out", "Quart", 0.2, true)
+        minBtn.Text = isMin and "+" or "—"
+    end)
+
+    closeBtn.MouseButton1Click:Connect(function()
+        screenGui:Destroy()
+    end)
+
+    return screenLabels
+end
+
+local function startChainESP()
+    if chainESPEnabled then return end
+    chainESPEnabled = true
+    local screenLabels = createScreenWindow()
+    chainESPConnection = RunService.Heartbeat:Connect(function()
+        refreshChainESP(screenLabels)
+    end)
+end
+
+local function stopChainESP()
+    chainESPEnabled = false
+    if chainESPConnection then
+        chainESPConnection:Disconnect()
+        chainESPConnection = nil
+    end
+    if currentChain then
+        removeChainESP(currentChain)
+        currentChain = nil
+    end
+    if pGui:FindFirstChild("ChainESPGui") then
+        pGui.ChainESPGui:Destroy()
+    end
+end
+
+Tab:Button({
+    Title = "悬浮窗式查看chain信息",
+    Callback = function()
+        local screenLabels = createScreenWindow()
+        
+        task.spawn(function()
+            while screenLabels and pGui:FindFirstChild("ChainESPGui") do
+                local chain = workspace:FindFirstChild("Misc")
+                    and workspace.Misc:FindFirstChild("AI")
+                    and workspace.Misc.AI:FindFirstChild("CHAIN")
+                if chain then
+                    updateChainAttributes(chain, screenLabels)
+                else
+                    screenLabels.anger.Text = "血月度: ..."
+                    screenLabels.burst.Text = "捶地: ..."
+                    screenLabels.choke.Text = "掐脖: ..."
+                end
+                task.wait(0.05)
+            end
+        end)
+    end
+})
+local Tab = Window:Tab({
+    Title = "传送",
+    Icon = "zap",
+    Locked = false,
+})
+local G = {}
+
+G.Players = game:GetService("Players")
+G.LocalPlayer = G.Players.LocalPlayer
+
+G.targets = {
+    { name = "chain出生地", pos = Vector3.new(-26.879013061523438, -107.01750183105469, -204.7770538330078) },
+    { name = "商店",        pos = Vector3.new(-110.85892486572266, -86.33830261230469, 211.8588409423828) },
+    { name = "排行榜",      pos = Vector3.new(43.30422592163086, -97.9687728881836, 349.1531982421875) },
+    { name = "工作间",      pos = Vector3.new(164.49859619140625, -103.65132141113281, -35.76066207885742) },
+    { name = "仓库",        pos = Vector3.new(308.97198486328125, -113.4938735961914, -250.46066284179688) },
+    { name = "发电站",      pos = Vector3.new(-203.81826782226562, -110.8906478881836, -108.90457916259766) },
+    { name = "收音机站",    pos = Vector3.new(-381.873046875, -115.02182006835938, 42.071022033691406) },
+}
+
+function G.getRootPart()
+    local char = G.LocalPlayer.Character or G.LocalPlayer.CharacterAdded:Wait()
+    return char:WaitForChild("HumanoidRootPart")
+end
+
+function G.teleportTo(pos)
+    pcall(function()
+        local root = G.getRootPart()
+        if root then
+            root.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+        end
+    end)
+end
+
+for _, t in ipairs(G.targets) do
+    local pos = t.pos
+    Tab:Button({
+        Title = t.name,
+        Callback = function()
+            G.teleportTo(pos)
+        end,
+    })
+end
+local Tab = Window:Tab({
+    Title = "商店",
+    Icon = "store",
+    Locked = false,
+})
+Tab:Button({
+    Title = "打开商店界面",
+    Desc = "晚上别打开商店买卖东西 不然会被踢",
+    Callback = function()
+        local success, err = pcall(function()
+            local shopGui = Players.LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("Ingame"):WaitForChild("Shop")
+            shopGui.Visible = true
+        end)
+        if not success then
+            warn("未找到商店界面:", err)
+        end
+    end
+})
+Tab:Button({
+    Title = "解锁商店隐藏物品",
+    Desc = "运行了这个功能后你可以在里面买到小刀和喷子 所以你可以不用去制作间做了",
+    Callback = function()
+        local buyFrame = game:GetService("Players").LocalPlayer.PlayerGui.Ingame.Shop.MainFrame.SubSections.BuyFrame
+        for _, child in ipairs(buyFrame:GetChildren()) do
+            if child:IsA("GuiObject") then
+                if child.Visible ~= true then
+                    child.Visible = true
+                end
+            end
+        end
+    end,
+})
+end
 local Tab = Window:Tab({  
     Title = "游戏选择",  
     Icon = "house",  
@@ -3193,7 +4554,8 @@ local game_functions = {
     [126997916667996] = dbf,
     [80692223709267] = ugcobby,
     [104522435597696] = am,
-    [133277436323400] = botandgun
+    [133277436323400] = botandgun,
+    [13977939077] = chain
 }
 
 local function check_game()
@@ -3263,5 +4625,11 @@ Tab:Button({
     Title = "机器人与滑膛枪",
     Callback = function()
     botandgun()
+    end
+})
+Tab:Button({
+    Title = "chain",
+    Callback = function()
+    chain()
     end
 })
