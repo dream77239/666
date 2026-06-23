@@ -1,3 +1,4 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Pixeluted/adoniscries/main/Source.lua", true))()
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/sss/refs/heads/main/main%20(7).lua"))()
 local Window = WindUI:CreateWindow({
     Title = "血墓",
@@ -165,7 +166,17 @@ RunService.RenderStepped:Connect(function()
         end
     end
 end)
-
+TabUtility:Input({
+    Title = "自定义ui开关键/custom ui switch",
+    Value = "K",
+    Placeholder = "请输入文本",
+    Callback = function(input)
+        local key = string.upper(input)
+        if Enum.KeyCode[key] then
+            Window:SetToggleKey(Enum.KeyCode[key])
+        end
+    end
+})
 TabUtility:Button({
     Title = "汉化飞行",
     Callback = function()
@@ -359,6 +370,64 @@ TabUtility:Toggle({
             Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
         end
     end,
+})
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LocalPlayer = Players.LocalPlayer
+
+local Config = {
+	Enabled = false,
+	RightArmCFrame = CFrame.new(0, -1.5, -0.5) * CFrame.Angles(math.rad(90), 0, 0),
+	LeftArmCFrame = CFrame.new(0, -1.5, -2.5) * CFrame.Angles(math.rad(90), 0, 0)
+}
+
+local function isTargetRemote(obj)
+	return typeof(obj) == "Instance" and obj.ClassName == "RemoteEvent" and obj.Name == "MoveArms"
+end
+
+local targetNC
+targetNC = hookmetamethod(game, "__namecall", function(self, ...)
+	local method = getnamecallmethod()
+	if Config.Enabled and (method == "FireServer" or method == "fireServer") and isTargetRemote(self) then
+		return targetNC(self, Config.RightArmCFrame, Config.LeftArmCFrame)
+	end
+	return targetNC(self, ...)
+end)
+
+local targetIdx
+targetIdx = hookmetamethod(game, "__index", function(self, key)
+	if Config.Enabled and (key == "FireServer" or key == "fireServer") and isTargetRemote(self) then
+		return function(rem, ...)
+			return targetNC(rem, Config.RightArmCFrame, Config.LeftArmCFrame)
+		end
+	end
+	return targetIdx(self, key)
+end)
+
+if getgenv and typeof(getgenv) == "function" then
+	local hookFunction = getgenv().hookfunction or getgenv().replaceclosure
+	if hookFunction then
+		local remoteMeta = game:GetTypeMetatable("RemoteEvent")
+		if remoteMeta and remoteMeta.FireServer then
+			local orgFireServer
+			orgFireServer = hookFunction(remoteMeta.FireServer, newcclosure(function(self, ...)
+				if Config.Enabled and isTargetRemote(self) then
+					return targetNC(self, Config.RightArmCFrame, Config.LeftArmCFrame)
+				end
+				return orgFireServer(self, ...)
+			end))
+		end
+	end
+end
+
+TabUtility:Toggle({
+    Title = "把你的两只手移动到78那里",
+    Desc = "这是所有人可以看到的 至于你为什么看不到我也不知道 反正全部人都能看到",
+    Value = false,
+    Callback = function(state)
+        Config.Enabled = state
+    end
 })
 
 local isTeleporting = false
@@ -563,7 +632,7 @@ TabCombat:Slider({
     Value = {
         Min = 1,
         Max = 10,
-        Default = 3,
+        Default = 5,
     },
     Callback = function(value)
         targetDistance = value
@@ -588,7 +657,7 @@ TabCombat:Slider({
     Value = {
         Min = 2,
         Max = 15,
-        Default = 4,
+        Default = 6,
     },
     Callback = function(value)
         headScaleSize = value
