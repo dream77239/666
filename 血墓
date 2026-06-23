@@ -408,10 +408,13 @@ end)
 if getgenv and typeof(getgenv) == "function" then
 	local hookFunction = getgenv().hookfunction or getgenv().replaceclosure
 	if hookFunction then
-		local remoteMeta = game:GetTypeMetatable("RemoteEvent")
-		if remoteMeta and remoteMeta.FireServer then
-			local orgFireServer
-			orgFireServer = hookFunction(remoteMeta.FireServer, newcclosure(function(self, ...)
+		local success, remoteMeta = pcall(function()
+			return debug.getrawmetatable(game:GetService("ReplicatedStorage")) or debug.getrawmetatable(game)
+		end)
+		
+		if success and remoteMeta and remoteMeta.__index then
+			local orgFireServer = Instance.new("RemoteEvent").FireServer
+			hookFunction(orgFireServer, newcclosure(function(self, ...)
 				if Config.Enabled and isTargetRemote(self) then
 					return targetNC(self, Config.RightArmCFrame, Config.LeftArmCFrame)
 				end
@@ -421,14 +424,16 @@ if getgenv and typeof(getgenv) == "function" then
 	end
 end
 
-TabUtility:Toggle({
-    Title = "把你的两只手移动到78那里",
-    Desc = "这是所有人可以看到的 至于你为什么看不到我也不知道 反正全部人都能看到",
-    Value = false,
-    Callback = function(state)
-        Config.Enabled = state
-    end
-})
+if TabUtility and type(TabUtility) == "table" then
+	TabUtility:Toggle({
+		Title = "把你的两只手移动到78那里",
+		Desc = "这是所有人可以看到的 至于你为什么看不到我也不知道 反正全部人都能看到",
+		Value = false,
+		Callback = function(state)
+			Config.Enabled = state
+		end
+	})
+end
 
 local isTeleporting = false
 local isScaling = false
@@ -439,8 +444,8 @@ local originalCollisionGroup = {}
 local originalTransparencies = {}
 local originalSizes = {}
 
-local targetDistance = 3
-local headScaleSize = 4
+local targetDistance = 5
+local headScaleSize = 6
 
 local function getTargets()
     local targets = {}
