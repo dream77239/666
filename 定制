@@ -4994,6 +4994,62 @@ Tab:Toggle({
         AutoEat_Enabled = state
     end
 })
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+
+local blockedIds = {
+    ["93617238361893"] = true,
+    ["111519577921596"] = true
+}
+
+local enabled = false
+local animationConn = nil
+
+local function checkTrack(track)
+    if not track.Animation then return end
+    local id = string.match(track.Animation.AnimationId, "%d+")
+    if blockedIds[id] then
+        track:Stop(0)
+    end
+end
+
+local function startHook()
+    if animationConn then animationConn:Disconnect() end
+    animationConn = Humanoid.AnimationPlayed:Connect(checkTrack)
+    for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
+        checkTrack(track)
+    end
+end
+
+local function stopHook()
+    if animationConn then
+        animationConn:Disconnect()
+        animationConn = nil
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    Character = newChar
+    Humanoid = newChar:WaitForChild("Humanoid")
+    if enabled then
+        startHook()
+    end
+end)
+
+Tab:Toggle({
+    Title = "斧头动画取消",
+    Value = false,
+    Callback = function(state)
+        enabled = state
+        if enabled then
+            startHook()
+        else
+            stopHook()
+        end
+    end
+})
 
 local Tab = Window:Tab({  
     Title = "透视",  
