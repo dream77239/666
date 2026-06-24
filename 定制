@@ -4976,7 +4976,7 @@ local AutoEat_Enabled = false
 local eating = false
 
 HungerValue.Changed:Connect(function(val)
-    if AutoEat_Enabled and val <= 80 and not eating then
+    if AutoEat_Enabled and val <= 100 and not eating then
         eating = true
         task.spawn(function()
             ActionEvent:FireServer("Apple")
