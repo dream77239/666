@@ -1,0 +1,943 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Pixeluted/adoniscries/main/Source.lua", true))()
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/sss/refs/heads/main/main%20(7).lua"))()
+local Window = WindUI:CreateWindow({
+    Title = "血墓",
+    Icon = "eye",
+    IconThemed = true,
+    Author = "句号",
+    Folder = "CloudHub",
+    Size = UDim2.fromOffset(500, 400),
+    Transparent = true,
+    Theme = "Dark",
+    Background = nil,
+    User = {
+        Enabled = true,
+        Callback = function() end,
+        Anonymous = false
+    },
+    SideBarWidth = 200,
+    ScrollBarEnabled = true
+})
+
+local TabUtility = Window:Tab({  
+    Title = "实用功能",  
+    Icon = "hammer",  
+    Locked = false,
+})
+
+local TabTeleport = Window:Tab({  
+    Title = "传送",  
+    Icon = "zap",  
+    Locked = false,
+})
+
+local TabCombat = Window:Tab({  
+    Title = "战斗",  
+    Icon = "swords",  
+    Locked = false,
+})
+
+local TabESP = Window:Tab({  
+    Title = "透视",  
+    Icon = "eye",  
+    Locked = false,
+})
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+
+local LocalPlayer = Players.LocalPlayer
+local targetEntity = Workspace:FindFirstChild("Enemies") and Workspace.Enemies:FindFirstChild("Bloodgraven")
+local highlightObj = nil
+local espEnabled = false
+
+TabESP:Toggle({
+    Title = "透视怪物",
+    Value = false,
+    Callback = function(state)
+        espEnabled = state
+    end
+})
+
+TabTeleport:Button({
+    Title = "传送 商店",
+    Callback = function()
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(448.50, 10.74, -93.40))
+        end
+    end
+})
+
+TabTeleport:Button({
+    Title = "传送 教堂",
+    Callback = function()
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(386.73, 1.20, 282.06))
+        end
+    end
+})
+
+TabTeleport:Button({
+    Title = "传送 仓库",
+    Callback = function()
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(-588.66, -6.18, 91.02))
+        end
+    end
+})
+
+TabTeleport:Button({
+    Title = "传送 献祭",
+    Callback = function()
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(-359.29, 7.85, -172.32))
+        end
+    end
+})
+
+TabTeleport:Button({
+    Title = "传送 许愿井",
+    Callback = function()
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(-260.25, -3.02, -419.43))
+        end
+    end
+})
+
+TabTeleport:Button({
+    Title = "传送 屋子",
+    Callback = function()
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(-22.72, 22.78, -162.11))
+        end
+    end
+})
+
+TabTeleport:Button({
+    Title = "传送 塔",
+    Callback = function()
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(246.99, 46.25, -250.93))
+        end
+    end
+})
+
+RunService.RenderStepped:Connect(function()
+    if espEnabled then
+        if not targetEntity or not targetEntity.Parent then
+            targetEntity = Workspace:FindFirstChild("Enemies") and Workspace.Enemies:FindFirstChild("Bloodgraven")
+        end
+        
+        if targetEntity then
+            local gameHighlight = targetEntity:FindFirstChildOfClass("Highlight")
+            if gameHighlight and gameHighlight ~= highlightObj then
+                gameHighlight:Destroy()
+            end
+
+            if not highlightObj or not highlightObj.Parent or highlightObj.Name ~= "CustomESP" then
+                if highlightObj then
+                    highlightObj:Destroy()
+                end
+                highlightObj = Instance.new("Highlight")
+                highlightObj.Name = "CustomESP"
+                highlightObj.FillColor = Color3.fromRGB(255, 0, 0)
+                highlightObj.OutlineColor = Color3.fromRGB(255, 0, 0)
+                highlightObj.FillTransparency = 1
+                highlightObj.OutlineTransparency = 0
+                highlightObj.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                highlightObj.Parent = targetEntity
+            elseif highlightObj.Parent ~= targetEntity then
+                highlightObj.Parent = targetEntity
+            end
+        end
+    else
+        if highlightObj then
+            highlightObj:Destroy()
+            highlightObj = nil
+        end
+    end
+end)
+TabUtility:Input({
+    Title = "自定义ui开关键/custom ui switch",
+    Value = "K",
+    Placeholder = "请输入文本",
+    Callback = function(input)
+        local key = string.upper(input)
+        if Enum.KeyCode[key] then
+            Window:SetToggleKey(Enum.KeyCode[key])
+        end
+    end
+})
+TabUtility:Button({
+    Title = "汉化飞行",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/fly/refs/heads/main/README.md"))()
+    end
+})
+local tpwalking = false
+local tpwalkSpeed = 30
+
+TabUtility:Toggle({
+    Title = "速度",
+    Value = false,
+    Callback = function(state)
+        tpwalking = state
+        if state then
+            task.spawn(function()
+                while tpwalking do
+                    local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                    local hrp = chr:FindFirstChild("HumanoidRootPart")
+                    local hum = chr:FindFirstChildWhichIsA("Humanoid")
+                    local delta = RunService.Heartbeat:Wait()
+                    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
+                        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * tpwalkSpeed * delta)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+TabUtility:Slider({
+    Title = "速度调节",
+    Value = {
+        Min = 0,
+        Max = 100,
+        Default = tpwalkSpeed,
+    },
+    Callback = function(value)
+        tpwalkSpeed = value
+    end
+})
+
+local OriginalHoldTimes = {}
+local promptConnection
+local heartbeatConnection
+
+TabUtility:Toggle({
+    Title = "秒互动",
+    Value = false,
+    Callback = function(state)
+        if state then
+            for _, prompt in pairs(workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[prompt] then
+                        OriginalHoldTimes[prompt] = prompt.HoldDuration
+                    end
+                    prompt.HoldDuration = 0
+                end
+            end
+            promptConnection = workspace.DescendantAdded:Connect(function(obj)
+                if obj:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[obj] then
+                        OriginalHoldTimes[obj] = obj.HoldDuration
+                    end
+                    obj.HoldDuration = 0
+                end
+            end)
+            heartbeatConnection = RunService.Heartbeat:Connect(function()
+                for prompt, original in pairs(OriginalHoldTimes) do
+                    if prompt and prompt.Parent then
+                        prompt.HoldDuration = 0
+                    end
+                end
+            end)
+        else
+            if promptConnection then promptConnection:Disconnect() end
+            if heartbeatConnection then heartbeatConnection:Disconnect() end
+            for prompt, original in pairs(OriginalHoldTimes) do
+                if prompt and prompt.Parent then
+                    prompt.HoldDuration = original
+                end
+            end
+        end
+    end
+})
+
+local NoclipEnabled = false
+local NoclipConnection
+
+local function setCharacterCollision(character, state)
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = state
+        end
+    end
+end
+
+local function enableNoclip()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    setCharacterCollision(character, false)
+
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+    end
+
+    NoclipConnection = RunService.Stepped:Connect(function()
+        if not NoclipEnabled then return end
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in ipairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableNoclip()
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+
+    local character = LocalPlayer.Character
+    if character then
+        setCharacterCollision(character, true)
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if NoclipEnabled then
+        task.wait(0.2)
+        enableNoclip()
+    end
+end)
+
+TabUtility:Toggle({
+    Title = "穿墙",
+    Value = false,
+    Callback = function(state)
+        NoclipEnabled = state
+        if state then
+            enableNoclip()
+        else
+            disableNoclip()
+        end
+    end
+})
+
+TabUtility:Button({
+    Title = "删除雾",
+    Callback = function()
+        local sky = Lighting:FindFirstChildOfClass("Sky")
+        if sky then sky:Destroy() end
+    end,
+})
+
+local mapHighlightConn = nil
+
+local function applyHighlight()
+    Lighting.Brightness = 5
+    Lighting.Ambient = Color3.fromRGB(160, 160, 160)
+    Lighting.OutdoorAmbient = Color3.fromRGB(180, 180, 180)
+end
+
+TabUtility:Toggle({
+    Title = "地图高亮",
+    Value = false,
+    Callback = function(state)
+        if mapHighlightConn then
+            mapHighlightConn:Disconnect()
+            mapHighlightConn = nil
+        end
+
+        if state then
+            applyHighlight()
+            mapHighlightConn = Lighting.Changed:Connect(function(property)
+                if property == "Brightness" or property == "Ambient" or property == "OutdoorAmbient" then
+                    Lighting.Brightness = 5
+                    Lighting.Ambient = Color3.fromRGB(160, 160, 160)
+                    Lighting.OutdoorAmbient = Color3.fromRGB(180, 180, 180)
+                end
+            end)
+        else
+            Lighting.Brightness = 1
+            Lighting.Ambient = Color3.fromRGB(70, 70, 70)
+            Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+        end
+    end,
+})
+TabUtility:Button({
+    Title = "绕过所有徽章和通行证验证",
+    Callback = function()
+        local targetBadgeIds = {
+            [1826727977909875] = true,
+            [606998418304050] = true,
+            [2692523468616782] = true,
+            [3222092836090397] = true,
+            [2134342149552621] = true,
+            [3050767731885826] = true,
+            [3341097397845299] = true,
+            [3377820615673793] = true,
+            [1924461367275290] = true
+        }
+
+        for _, v in pairs(getgc(true)) do
+            if type(v) == "function" then
+                local info = debug.getinfo(v)
+                local name = string.lower(info.name or "")
+                
+                if string.find(name, "badge") or string.find(name, "owns") or string.find(name, "check") or string.find(name, "achievement") or string.find(name, "gamepass") then
+                    hookfunction(v, function(...)
+                        return true
+                    end)
+                end
+            end
+            
+            if type(v) == "table" then
+                if rawget(v, "OwnsBadge") or rawget(v, "ownsBadge") or rawget(v, "OwnsGamepass") or rawget(v, "ownsGamepass") then
+                    v.OwnsBadge = function() return true end
+                    v.ownsBadge = function() return true end
+                    v.OwnsGamepass = function() return true end
+                    v.ownsGamepass = function() return true end
+                end
+                if rawget(v, "Ids") and type(v.Ids) == "table" then
+                    for _, id in pairs(v.Ids) do
+                        local currentId = tonumber(id)
+                        if currentId and targetBadgeIds[currentId] then
+                            v.Owned = true
+                            v.Enabled = true
+                        end
+                    end
+                end
+            end
+        end
+    end
+})
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LocalPlayer = Players.LocalPlayer
+
+local Config = {
+	Enabled = false,
+	RightArmCFrame = CFrame.new(0, -1.5, -0.5) * CFrame.Angles(math.rad(90), 0, 0),
+	LeftArmCFrame = CFrame.new(0, -1.5, -2.5) * CFrame.Angles(math.rad(90), 0, 0)
+}
+
+local function isTargetRemote(obj)
+	return typeof(obj) == "Instance" and obj.ClassName == "RemoteEvent" and obj.Name == "MoveArms"
+end
+
+local targetNC
+targetNC = hookmetamethod(game, "__namecall", function(self, ...)
+	local method = getnamecallmethod()
+	if Config.Enabled and (method == "FireServer" or method == "fireServer") and isTargetRemote(self) then
+		return targetNC(self, Config.RightArmCFrame, Config.LeftArmCFrame)
+	end
+	return targetNC(self, ...)
+end)
+
+local targetIdx
+targetIdx = hookmetamethod(game, "__index", function(self, key)
+	if Config.Enabled and (key == "FireServer" or key == "fireServer") and isTargetRemote(self) then
+		return function(rem, ...)
+			return targetNC(rem, Config.RightArmCFrame, Config.LeftArmCFrame)
+		end
+	end
+	return targetIdx(self, key)
+end)
+
+if getgenv and typeof(getgenv) == "function" then
+	local hookFunction = getgenv().hookfunction or getgenv().replaceclosure
+	if hookFunction then
+		local success, remoteMeta = pcall(function()
+			return debug.getrawmetatable(game:GetService("ReplicatedStorage")) or debug.getrawmetatable(game)
+		end)
+		
+		if success and remoteMeta and remoteMeta.__index then
+			local orgFireServer = Instance.new("RemoteEvent").FireServer
+			hookFunction(orgFireServer, newcclosure(function(self, ...)
+				if Config.Enabled and isTargetRemote(self) then
+					return targetNC(self, Config.RightArmCFrame, Config.LeftArmCFrame)
+				end
+				return orgFireServer(self, ...)
+			end))
+		end
+	end
+end
+
+if TabUtility and type(TabUtility) == "table" then
+	TabUtility:Toggle({
+		Title = "把你的两只手移动到78那里",
+		Desc = "这是所有人可以看到的 至于你为什么看不到我也不知道 反正全部人都能看到",
+		Value = false,
+		Callback = function(state)
+			Config.Enabled = state
+		end
+	})
+end
+
+local isTeleporting = false
+local isScaling = false
+local tpConnection
+local scaleConnection
+
+local originalCollisionGroup = {}
+local originalTransparencies = {}
+local originalSizes = {}
+
+local targetDistance = 5
+local headScaleSize = 6
+
+local function getTargets()
+    local targets = {}
+    local enemies = Workspace:FindFirstChild("Enemies")
+    if enemies then
+        for _, enemy in ipairs(enemies:GetChildren()) do
+            local head = enemy:FindFirstChild("Head")
+            local hitbox = enemy:FindFirstChild("HeadHitbox")
+            if head and hitbox then
+                table.insert(targets, {head = head, hitbox = hitbox, model = enemy})
+            end
+        end
+    end
+    return targets
+end
+
+local function cleanTargetState(head, hitbox)
+    if head and hitbox then
+        if originalSizes[head] then head.Size = originalSizes[head] end
+        if originalSizes[hitbox] then hitbox.Size = originalSizes[hitbox] end
+        
+        if head:IsA("SpecialMesh") or head:FindFirstChildOfClass("SpecialMesh") then
+            local mesh = head:IsA("SpecialMesh") and head or head:FindFirstChildOfClass("SpecialMesh")
+            mesh.MeshType = Enum.MeshType.Head
+        end
+        if hitbox:IsA("SpecialMesh") or hitbox:FindFirstChildOfClass("SpecialMesh") then
+            local mesh = hitbox:IsA("SpecialMesh") and hitbox or hitbox:FindFirstChildOfClass("SpecialMesh")
+            mesh.MeshType = Enum.MeshType.Head
+        end
+        
+        head.Transparency = originalTransparencies[head] or 0
+        hitbox.Transparency = originalTransparencies[hitbox] or 0
+        head.Massless = false
+        hitbox.Massless = false
+        head.CanCollide = true
+        hitbox.CanCollide = true
+    end
+end
+
+local function restoreLocalPlayerCollision()
+    local character = LocalPlayer.Character
+    if character then
+        for _, part in ipairs(character:GetChildren()) do
+            if part:IsA("BasePart") and originalCollisionGroup[part.Name] ~= nil then
+                part.CanCollide = originalCollisionGroup[part.Name]
+            end
+        end
+    end
+    table.clear(originalCollisionGroup)
+end
+
+local function updateScaleLogic()
+    if not isScaling then return end
+    
+    local currentTargets = getTargets()
+    for _, target in ipairs(currentTargets) do
+        local currentHead = target.head
+        local currentHeadHitbox = target.hitbox
+        
+        if not originalSizes[currentHead] then originalSizes[currentHead] = currentHead.Size end
+        if not originalSizes[currentHeadHitbox] then originalSizes[currentHeadHitbox] = currentHeadHitbox.Size end
+        if not originalTransparencies[currentHead] then originalTransparencies[currentHead] = currentHead.Transparency end
+        if not originalTransparencies[currentHeadHitbox] then originalTransparencies[currentHeadHitbox] = currentHeadHitbox.Transparency end
+        
+        local desiredSize = Vector3.new(headScaleSize, headScaleSize, headScaleSize)
+        if currentHead.Size ~= desiredSize then
+            currentHead.Size = desiredSize
+            currentHeadHitbox.Size = desiredSize
+            
+            local mesh1 = currentHead:IsA("SpecialMesh") and currentHead or currentHead:FindFirstChildOfClass("SpecialMesh")
+            if not mesh1 then mesh1 = Instance.new("SpecialMesh", currentHead) end
+            mesh1.MeshType = Enum.MeshType.Brick
+            
+            local mesh2 = currentHeadHitbox:IsA("SpecialMesh") and currentHeadHitbox or currentHeadHitbox:FindFirstChildOfClass("SpecialMesh")
+            if not mesh2 then mesh2 = Instance.new("SpecialMesh", currentHeadHitbox) end
+            mesh2.MeshType = Enum.MeshType.Brick
+
+            currentHead.Transparency = 0.6
+            currentHeadHitbox.Transparency = 0.6
+            currentHead.Massless = true
+            currentHeadHitbox.Massless = true
+        end
+    end
+end
+
+local function startScaleLoop()
+    if scaleConnection then scaleConnection:Disconnect() end
+    scaleConnection = RunService.RenderStepped:Connect(function()
+        if not isScaling then
+            scaleConnection:Disconnect()
+            scaleConnection = nil
+            return
+        end
+        updateScaleLogic()
+    end)
+end
+
+local function stopScaleLogic()
+    if scaleConnection then scaleConnection:Disconnect() scaleConnection = nil end
+    local currentTargets = getTargets()
+    for _, target in ipairs(currentTargets) do
+        cleanTargetState(target.head, target.hitbox)
+        originalSizes[target.head] = nil
+        originalSizes[target.hitbox] = nil
+        originalTransparencies[target.head] = nil
+        originalTransparencies[target.hitbox] = nil
+    end
+end
+
+local function startTeleportLoop()
+    if tpConnection then tpConnection:Disconnect() end
+    
+    table.clear(originalCollisionGroup)
+    local character = LocalPlayer.Character
+    if character then
+        for _, part in ipairs(character:GetChildren()) do
+            if part:IsA("BasePart") then
+                originalCollisionGroup[part.Name] = part.CanCollide
+            end
+        end
+    end
+
+    tpConnection = RunService.RenderStepped:Connect(function()
+        if not isTeleporting then
+            tpConnection:Disconnect()
+            tpConnection = nil
+            return
+        end
+
+        local currentTargets = getTargets()
+        local char = LocalPlayer.Character
+        local rootPart = char and char:FindFirstChild("HumanoidRootPart")
+        
+        if char then
+            for _, part in ipairs(char:GetChildren()) do
+                if part:IsA("BasePart") then
+                    if part.CanCollide ~= false then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end
+
+        if rootPart and #currentTargets > 0 then
+            local targetCFrame = rootPart.CFrame * CFrame.new(0, 0, -targetDistance)
+            
+            for _, target in ipairs(currentTargets) do
+                local currentHead = target.head
+                local currentHeadHitbox = target.hitbox
+                local bg = target.model
+                
+                local currentVelocity = currentHead.AssemblyLinearVelocity
+                if currentVelocity.Magnitude > 0 then
+                    currentHead.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                    currentHead.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+                end
+                
+                if currentHead.Parent == bg then
+                    currentHead.CFrame = targetCFrame
+                end
+                if currentHeadHitbox.Parent == bg then
+                    currentHeadHitbox.CFrame = targetCFrame
+                end
+            end
+        end
+    end)
+end
+
+local function stopTeleportLogic()
+    if tpConnection then tpConnection:Disconnect() tpConnection = nil end
+    restoreLocalPlayerCollision()
+end
+
+TabCombat:Toggle({
+    Title = "把怪物传送至面前",
+    Value = false,
+    Callback = function(state)
+        isTeleporting = state
+        if isTeleporting then
+            startTeleportLoop()
+        else
+            stopTeleportLogic()
+        end
+    end
+})
+
+TabCombat:Slider({
+    Title = "传送距离",
+    Value = {
+        Min = 1,
+        Max = 10,
+        Default = 5,
+    },
+    Callback = function(value)
+        targetDistance = value
+    end
+})
+
+TabCombat:Toggle({
+    Title = "头部放大",
+    Value = false,
+    Callback = function(state)
+        isScaling = state
+        if isScaling then
+            startScaleLoop()
+        else
+            stopScaleLogic()
+        end
+    end
+})
+
+TabCombat:Slider({
+    Title = "放大大小",
+    Value = {
+        Min = 2,
+        Max = 15,
+        Default = 6,
+    },
+    Callback = function(value)
+        headScaleSize = value
+        if isScaling then
+            updateScaleLogic()
+        end
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local localPlayer = Players.LocalPlayer
+local isAttacking = false
+local lastAttackTime = 0
+local attackInterval = 0.01
+
+local function getValidTargets()
+	local targets = {}
+	local container = workspace:FindFirstChild("Enemie") or workspace:FindFirstChild("Enemies")
+	if not container then return targets end
+	
+	for _, child in ipairs(container:GetChildren()) do
+		local humanoid = child:FindFirstChildOfClass("Humanoid")
+		local isAlive = true
+		
+		if humanoid and (humanoid.Health <= 0 or child:GetAttribute("Dead") == true or child:GetAttribute("IsDead") == true) then
+			isAlive = false
+		end
+		
+		if isAlive then
+			local head = child:FindFirstChild("HeadHitbox") or child:FindFirstChild("Head")
+			if head then
+				table.insert(targets, head)
+			end
+		end
+	end
+	return targets
+end
+
+local loopConnection
+local function startLoop()
+	if loopConnection then loopConnection:Disconnect() end
+	loopConnection = RunService.Heartbeat:Connect(function()
+		if not isAttacking then return end
+		
+		local now = tick()
+		if now - lastAttackTime < attackInterval then return end
+		
+		local character = localPlayer.Character
+		if not character then return end
+		
+		local weapon = character:FindFirstChild("M4A1")
+		if not weapon then return end
+		
+		local assets = weapon:FindFirstChild("Assets")
+		local remotes = assets and assets:FindFirstChild("Remotes")
+		if not remotes then return end
+		
+		local fireRemote = remotes:FindFirstChild("Fire")
+		local reloadRemote = remotes:FindFirstChild("Reload")
+		
+		local handle = weapon:FindFirstChild("Handle")
+		local muzzlePoint = handle and handle:FindFirstChild("GunMuzzlePoint")
+		
+		if not fireRemote or not reloadRemote or not muzzlePoint then return end
+		
+		local validTargets = getValidTargets()
+		if #validTargets == 0 then return end
+		
+		lastAttackTime = now
+		
+		local originPos = muzzlePoint.Position
+		if muzzlePoint:IsA("Attachment") then
+			originPos = muzzlePoint.WorldPosition
+		end
+		
+		for _, targetHead in ipairs(validTargets) do
+			local targetPos = targetHead.Position
+			local direction = (targetPos - originPos).Unit
+			if direction.Magnitude == 0 or direction.X ~= direction.X then
+				direction = Vector3.new(0, 1, 0)
+			end
+			
+			local fireArgs1 = {
+				Vector3.new(targetPos.X, targetPos.Y, targetPos.Z),
+				Vector3.new(direction.X, direction.Y, direction.Z),
+				muzzlePoint
+			}
+			
+			local fireArgs2 = {
+				Vector3.new(originPos.X, originPos.Y, originPos.Z),
+				Vector3.new(targetPos.X, targetPos.Y, targetPos.Z),
+				muzzlePoint
+			}
+			
+			fireRemote:FireServer(unpack(fireArgs1))
+			fireRemote:FireServer(unpack(fireArgs2))
+		end
+		
+		local reloadArgs = { false }
+		reloadRemote:FireServer(unpack(reloadArgs))
+	end)
+end
+
+TabCombat:Toggle({
+    Title = "ragebot",
+    Value = false,
+    Callback = function(state)
+        isAttacking = state
+        if isAttacking then
+            startLoop()
+        else
+            if loopConnection then
+                loopConnection:Disconnect()
+                loopConnection = nil
+            end
+        end
+    end
+})
+local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+local cachedTarget = nil
+local lastUpdate = 0
+local updateDelay = 0.1
+local scriptActive = false
+
+local FOV_Circle = Drawing.new("Circle")
+FOV_Circle.Visible = false
+FOV_Circle.Radius = 100
+FOV_Circle.Color = Color3.fromRGB(255, 255, 255)
+FOV_Circle.Thickness = 1
+FOV_Circle.Transparency = 1
+FOV_Circle.Filled = false
+FOV_Circle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+    FOV_Circle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+end)
+
+local function updateTarget()
+    if not scriptActive then 
+        cachedTarget = nil 
+        return 
+    end
+    
+    local targetFolder = Workspace:FindFirstChild("Enemies")
+    if not targetFolder then
+        cachedTarget = nil
+        return
+    end
+
+    local targetObj = targetFolder:FindFirstChild("Bloodgraven")
+    if targetObj then
+        local head = targetObj:FindFirstChild("HeadHitbox") or targetObj:FindFirstChild("Head")
+        local hum = targetObj:FindFirstChildOfClass("Humanoid")
+        if head and hum and hum.Health > 0 then
+            local camCF = Camera.CFrame
+            local dir = (head.Position - camCF.Position)
+            local angle = math.deg(math.acos(camCF.LookVector:Dot(dir.Unit)))
+            if angle <= (FOV_Circle.Radius / 6.6) then
+                cachedTarget = head
+                return
+            end
+        end
+    end
+    cachedTarget = nil
+end
+
+RunService.RenderStepped:Connect(function()
+    if tick() - lastUpdate > updateDelay then
+        lastUpdate = tick()
+        updateTarget()
+    end
+end)
+
+local isHooking = false
+local old
+old = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    if scriptActive and not checkcaller() and not isHooking and self == Workspace then
+        if cachedTarget and (method == "Raycast" or method == "FindPartOnRay") then
+            isHooking = true
+            local args = {...}
+            local origin
+            if method == "Raycast" then
+                origin = args[1]
+            else
+                local ray = args[1]
+                if typeof(ray) == "Ray" then origin = ray.Origin end
+            end
+            if origin then
+                local hitPos = cachedTarget.Position
+                isHooking = false
+                return {
+                    Instance = cachedTarget,
+                    Position = hitPos,
+                    Normal = Vector3.new(0, 1, 0),
+                    Material = Enum.Material.Plastic,
+                    Distance = (hitPos - origin).Magnitude
+                }
+            end
+            isHooking = false
+        end
+    end
+    return old(self, ...)
+end)
+
+TabCombat:Toggle({
+    Title = "子追",
+    Value = false,
+    Callback = function(state)
+        scriptActive = state
+        FOV_Circle.Visible = state
+    end
+})
+
+TabCombat:Slider({
+    Title = "子追圈大小",
+    Value = {
+        Min = 10,
+        Max = 500,
+        Default = 100,
+    },
+    Callback = function(value)
+        FOV_Circle.Radius = value
+    end
+})
