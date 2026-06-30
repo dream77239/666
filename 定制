@@ -4798,6 +4798,26 @@ Tab:Button({
         end
     end,
 })
+local Tab = Window:Tab({  
+    Title = "动画播放",  
+    Icon = "house",  
+    Locked = false,
+})
+for _, v in ipairs(game:GetService("ReplicatedStorage").GameStuff.Animations:GetDescendants()) do
+    if v:IsA("Animation") then
+        Tab:Button({
+            Title = v.Name,
+            Callback = function()
+                local animator = game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):FindFirstChildOfClass("Animator")
+                if animator then
+                    local track = animator:LoadAnimation(v)
+                    track:Play()
+                end
+            end
+        })
+    end
+end
+
 end
 local function bdfk()
 Window:Divider()
