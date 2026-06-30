@@ -1,3 +1,19 @@
+local LogService = game:GetService("LogService")
+
+for _, c in pairs(getconnections(LogService.MessageOut)) do
+    c:Disable()
+end
+
+LogService.MessageOut:Connect(function(msg, msgType)
+    if typeof(msg) == "string" then
+        if msg:find("Signal not found") 
+        or msg:find("Infinite yield possible") 
+        or msgType == Enum.MessageType.MessageOutput then
+            return
+        end
+    end
+    print(msg)
+end)
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/china-ui/refs/heads/main/main%20(6).lua"))()
 local Window = WindUI:CreateWindow({
     Title = "nigger",
@@ -34,7 +50,7 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 local tpwalking = false
-local tpwalkSpeed = 5
+local tpwalkSpeed = 30
 
 Tab:Toggle({
     Title = "速度",
@@ -66,49 +82,6 @@ Tab:Slider({
     },
     Callback = function(value)
         tpwalkSpeed = value
-    end
-})
-local OriginalHoldTimes = {}
-local promptConnection
-local heartbeatConnection
-
-Tab:Toggle({
-    Title = "秒互动",
-    Value = false,
-    Callback = function(state)
-        if state then
-            for _, prompt in pairs(workspace:GetDescendants()) do
-                if prompt:IsA("ProximityPrompt") then
-                    if not OriginalHoldTimes[prompt] then
-                        OriginalHoldTimes[prompt] = prompt.HoldDuration
-                    end
-                    prompt.HoldDuration = 0
-                end
-            end
-            promptConnection = workspace.DescendantAdded:Connect(function(obj)
-                if obj:IsA("ProximityPrompt") then
-                    if not OriginalHoldTimes[obj] then
-                        OriginalHoldTimes[obj] = obj.HoldDuration
-                    end
-                    obj.HoldDuration = 0
-                end
-            end)
-            heartbeatConnection = RunService.Heartbeat:Connect(function()
-                for prompt, original in pairs(OriginalHoldTimes) do
-                    if prompt and prompt.Parent then
-                        prompt.HoldDuration = 0
-                    end
-                end
-            end)
-        else
-            if promptConnection then promptConnection:Disconnect() end
-            if heartbeatConnection then heartbeatConnection:Disconnect() end
-            for prompt, original in pairs(OriginalHoldTimes) do
-                if prompt and prompt.Parent then
-                    prompt.HoldDuration = original
-                end
-            end
-        end
     end
 })
 local Players = game:GetService("Players")
@@ -182,29 +155,101 @@ Tab:Toggle({
         end
     end
 })
+local Workspace = game:GetService("Workspace")
+
+local autoNextRound = false
+
+task.spawn(function()
+	while true do
+		task.wait(1)
+		if autoNextRound then
+			pcall(function()
+				local entities = Workspace:FindFirstChild("Entities")
+				local structures = entities and entities:FindFirstChild("Structures")
+				local statue = structures and structures:FindFirstChild("Statue")
+				local prompt = statue and statue:FindFirstChild("Prompt")
+				local customPrompt = prompt and prompt:FindFirstChild("CustomProximityPrompt")
+				
+				if customPrompt then
+					customPrompt:FireServer()
+				end
+			end)
+		end
+	end
+end)
+
+Tab:Toggle({
+	Title = "自动下一回合",
+	Value = false,
+	Callback = function(state)
+		autoNextRound = state
+	end
+})
+
+local Tab = Window:Tab({  
+    Title = "透视",  
+    Icon = "eye",  
+    Locked = false,
+})
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
+Tab:Toggle({
+    Title = "玩家透视",
+    Value = false,
+    Callback = function(state)
+        playerEspOn = state
+        if playerEspOn then
+            local function applyHighlight(parent, outlineColor)
+                if parent:FindFirstChild("_KanlHL") then return end
+                local hl = Instance.new("Highlight")
+                hl.Name = "_KanlHL"
+                hl.FillTransparency = 1
+                hl.OutlineTransparency = 0
+                hl.OutlineColor = outlineColor
+                hl.FillColor = outlineColor
+                hl.Adornee = parent
+                hl.Parent = parent
+            end
+
+            local function applyPlayerEsp(plr)
+                if plr == game:GetService("Players").LocalPlayer then return end
+                local function onChar(char)
+                    if playerEspOn then applyHighlight(char, Color3.fromRGB(0, 255, 0)) end
+                end
+                if plr.Character then onChar(plr.Character) end
+                plr.CharacterAdded:Connect(onChar)
+            end
+
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do 
+                applyPlayerEsp(plr) 
+            end
+
+            game:GetService("Players").PlayerAdded:Connect(function(plr)
+                if playerEspOn then applyPlayerEsp(plr) end
+            end)
+        else
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+                if plr ~= game:GetService("Players").LocalPlayer and plr.Character then
+                    local hl = plr.Character:FindFirstChild("_KanlHL")
+                    if hl then hl:Destroy() end
+                end
+            end
+        end
+    end
+})
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+
 local espActive = false
-local meleeActive = false
 
 local function isAlive(model)
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	if humanoid and humanoid.Health > 0 then
 		return true
-	end
-	return false
-end
-
-local function hasShield(model)
-	if model:FindFirstChild("Shield") or model:FindFirstChild("ForceField") or model:FindFirstChild("ShieldValue") then
-		return true
-	end
-	for _, child in ipairs(model:GetChildren()) do
-		if string.find(string.lower(child.Name), "shield") then
-			return true
-		end
 	end
 	return false
 end
@@ -260,36 +305,315 @@ task.spawn(function()
 	end
 end)
 
+Tab:Toggle({
+	Title = "透视傻逼",
+	Value = false,
+	Callback = function(state)
+		espActive = state
+	end
+})
+local Tab = Window:Tab({  
+    Title = "暴力功能",  
+    Icon = "hand-fist",  
+    Locked = false,
+})
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+
+local configFileName = "UniversalCombat_ColorConfig.json"
+local config = {
+	BeamColor = {0, 200, 255}
+}
+
+local meleeActive = false
+local rangedActive = false
+local useBeam = false
+local useSound = false
+
+local function loadConfig()
+	if isfile and isfile(configFileName) then
+		local success, data = pcall(function()
+			return HttpService:JSONDecode(readfile(configFileName))
+		end)
+		if success and type(data) == "table" and data.BeamColor then
+			config.BeamColor = data.BeamColor
+		end
+	end
+end
+
+local function saveConfig()
+	if writefile then
+		pcall(function()
+			writefile(configFileName, HttpService:JSONEncode(config))
+		end)
+	end
+end
+
+loadConfig()
+
+local currentBeamColor = Color3.fromRGB(config.BeamColor[1], config.BeamColor[2], config.BeamColor[3])
+
+local function getWeapon()
+	local char = LocalPlayer.Character
+	if not char then return nil end
+	for _, child in pairs(char:GetChildren()) do
+		if child:IsA("Tool") and child:FindFirstChild("SendActions") and child:FindFirstChild("Settings") then
+			return child
+		end
+	end
+	return nil
+end
+
+local function getMeleeWeapon()
+	local char = LocalPlayer.Character
+	if not char then return nil end
+	for _, child in pairs(char:GetChildren()) do
+		if child:IsA("Tool") and child:FindFirstChild("SendActions") then
+			return child
+		end
+	end
+	return nil
+end
+
+local function getMuzzlePosition(weapon)
+	local handle = weapon:FindFirstChild("Handle")
+	if handle then
+		local muzzle = handle:FindFirstChild("Muzzle") or handle:FindFirstChild("Slide")
+		if muzzle then
+			if muzzle:IsA("Attachment") then
+				return muzzle.WorldPosition
+			elseif muzzle:IsA("BasePart") then
+				return (muzzle.CFrame * CFrame.new(0, 0, -muzzle.Size.Z/2)).Position
+			end
+		end
+		return (handle.CFrame * CFrame.new(0, 0, -handle.Size.Z/2)).Position
+	end
+	local char = LocalPlayer.Character
+	if char and char:FindFirstChild("Right Arm") then
+		return char["Right Arm"].Position
+	end
+	return vector.zero
+end
+
+local function isAlive(model)
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.Health > 0 then
+		return true
+	end
+	return false
+end
+
+local function hasShield(model)
+	if model:FindFirstChild("Shield") or model:FindFirstChild("ForceField") or model:FindFirstChild("ShieldValue") or model:FindFirstChild("ShieldProtected") or model:FindFirstChild("BlockingTag") then
+		return true
+	end
+	for _, child in ipairs(model:GetChildren()) do
+		if string.find(string.lower(child.Name), "shield") then
+			return true
+		end
+	end
+	return false
+end
+
+local function getTargets()
+	local targets = {}
+	local paths = {
+		Workspace:FindFirstChild("Entities") and Workspace.Entities:FindFirstChild("Bosses"),
+		Workspace:FindFirstChild("Entities") and Workspace.Entities:FindFirstChild("Decloid")
+	}
+	for _, path in ipairs(paths) do
+		if path then
+			for _, child in ipairs(path:GetChildren()) do
+				if child:IsA("Model") and child:FindFirstChild("HumanoidRootPart") then
+					table.insert(targets, child)
+				end
+			end
+		end
+	end
+	return targets
+end
+
+local function getRangedTargets()
+	local valid = {}
+	local folders = {
+		Workspace:FindFirstChild("Entities") and Workspace.Entities:FindFirstChild("Bosses"),
+		Workspace:FindFirstChild("Entities") and Workspace.Entities:FindFirstChild("Decloid")
+	}
+	for _, folder in pairs(folders) do
+		if folder then
+			for _, ent in pairs(folder:GetChildren()) do
+				if ent:IsA("Model") and ent:FindFirstChild("Humanoid") then
+					if ent.Humanoid.Health > 0 and not hasShield(ent) then
+						local hitbox = ent:FindFirstChild("ProjectileBodyHitbox") or ent:FindFirstChild("Head") or ent:FindFirstChildOfClass("BasePart")
+						if hitbox then
+							table.insert(valid, {model = ent, part = hitbox})
+						end
+					end
+				end
+			end
+		end
+	end
+	return valid
+end
+
+local function createVisualEffects(startPos, endPos, targetPart)
+	if useSound then
+		task.spawn(function()
+			local sound = Instance.new("Sound")
+			sound.SoundId = "rbxassetid://17148249625"
+			sound.Volume = 1.2
+			sound.RollOffMaxDistance = 500
+			sound.RollOffMinDistance = 20
+			sound.RollOffMode = Enum.RollOffMode.Linear
+			sound.Parent = targetPart
+			sound:Play()
+			game.Debris:AddItem(sound, 2)
+		end)
+	end
+
+	if not useBeam then return end
+
+	local distance = (startPos - endPos).Magnitude
+	if distance < 0.1 then return end
+
+	local p1 = Instance.new("Part")
+	p1.Anchored = true
+	p1.CanCollide = false
+	p1.CanTouch = false
+	p1.CanQuery = false
+	p1.Transparency = 1
+	p1.Size = Vector3.new(0.1, 0.1, 0.1)
+	p1.CFrame = CFrame.new(startPos)
+	p1.Parent = Workspace
+
+	local p2 = Instance.new("Part")
+	p2.Anchored = true
+	p2.CanCollide = false
+	p2.CanTouch = false
+	p2.CanQuery = false
+	p2.Transparency = 1
+	p2.Size = Vector3.new(0.1, 0.1, 0.1)
+	p2.CFrame = CFrame.new(endPos)
+	p2.Parent = Workspace
+
+	local att1 = Instance.new("Attachment", p1)
+	local att2 = Instance.new("Attachment", p2)
+
+	local beam = Instance.new("Beam")
+	beam.Attachment0 = att1
+	beam.Attachment1 = att2
+	beam.Texture = "rbxassetid://446111271"
+	beam.Color = ColorSequence.new(currentBeamColor)
+	beam.Width0 = 0.4
+	beam.Width1 = 0.4
+	beam.LightEmission = 1
+	beam.LightInfluence = 0
+	beam.Transparency = NumberSequence.new(0.3)
+	beam.FaceCamera = true
+	beam.Parent = p1
+
+	task.delay(2, function()
+		local elapsed = 0
+		local duration = 0.5
+		local connection
+		connection = RunService.Heartbeat:Connect(function(dt)
+			elapsed = elapsed + dt
+			local progress = math.min(elapsed / duration, 1)
+			local alpha = 0.3 + (0.7 * progress)
+			local currentWidth = 0.4 * (1 - progress)
+			
+			if beam and beam.Parent then
+				beam.Transparency = NumberSequence.new(alpha)
+				beam.Width0 = currentWidth
+				beam.Width1 = currentWidth
+			end
+			
+			if progress >= 1 then
+				connection:Disconnect()
+				p1:Destroy()
+				p2:Destroy()
+			end
+		end)
+	end)
+end
+
 task.spawn(function()
 	while true do
 		task.wait(0.01)
 		if meleeActive then
-			local character = LocalPlayer.Character
-			local weapon = character and character:FindFirstChild("Linked Sword")
+			local weapon = getMeleeWeapon()
 			local sendActions = weapon and weapon:FindFirstChild("SendActions")
 			
 			if sendActions then
 				local targets = getTargets()
-				for _, target in ipairs(targets) do
-					if isAlive(target) and not hasShield(target) then
+				if #targets > 0 then
+					for _, target in ipairs(targets) do
+						if not meleeActive or getMeleeWeapon() ~= weapon then break end
+						if isAlive(target) and not hasShield(target) then
+							local args = {
+								"Damage",
+								{
+									hitModel = {target}
+								},
+								{
+									EnergyUssage = 0,
+									MeleeHitboxDistance = 3,
+									Firerate = 0.32,
+									MeleeDelay = 0.1,
+									MeleeHitboxSize = Vector3.new(9, 7, 4),
+									Damage = 20.16
+								},
+								{
+									Vector3.new(2, 1, 1)
+								}
+							}
+							sendActions:FireServer(unpack(args))
+						end
+					end
+				end
+			end
+		end
+	end
+end)
+
+task.spawn(function()
+	while task.wait(0.1) do
+		if rangedActive then
+			local targets = getRangedTargets()
+			if #targets > 0 then
+				local weapon = getWeapon()
+				if weapon then
+					local settings = weapon.Settings
+					for _, target in pairs(targets) do
+						if not rangedActive or getWeapon() ~= weapon then break end
+						
+						local startMuzzle = getMuzzlePosition(weapon)
+						local pos = target.part.Position
+						
+						createVisualEffects(startMuzzle, pos, target.part)
+
 						local args = {
 							"Damage",
 							{
-								hitModel = {target}
+								hitPart = target.part,
+								hitModel = target.model,
+								ImpactPosition = vector.create(pos.X, pos.Y, pos.Z)
 							},
 							{
-								EnergyUssage = 0,
-								MeleeHitboxDistance = 3,
-								Firerate = 0.32,
-								MeleeDelay = 0.1,
-								MeleeHitboxSize = Vector3.new(9, 7, 4),
-								Damage = 20.16
-							},
-							{
-								Vector3.new(2, 1, 1)
+								Firerate = settings:GetAttribute("Firerate") or 0.1,
+								ProjectileAcceleration = settings:GetAttribute("ProjectileAcceleration") or vector.zero,
+								ProjectileVelocity = settings:GetAttribute("ProjectileVelocity") or 1000,
+								EnergyUssage = settings:GetAttribute("EnergyUssage") or 0,
+								Spread = settings:GetAttribute("Spread") or 0,
+								Damage = settings:GetAttribute("Damage") or 1
 							}
 						}
-						sendActions:FireServer(unpack(args))
+						weapon.SendActions:FireServer(unpack(args))
 					end
 				end
 			end
@@ -298,17 +622,43 @@ task.spawn(function()
 end)
 
 Tab:Toggle({
-    Title = "透视傻逼",
-    Value = false,
-    Callback = function(state)
-        espActive = state
-    end
+	Title = "近战光环",
+	Value = false,
+	Callback = function(state)
+		meleeActive = state
+	end
 })
 
 Tab:Toggle({
-    Title = "近战光环",
-    Value = false,
-    Callback = function(state)
-        meleeActive = state
-    end
+	Title = "枪械光环",
+	Value = false,
+	Callback = function(state)
+		rangedActive = state
+	end
+})
+
+Tab:Toggle({
+	Title = "开启枪械光环射线",
+	Value = false,
+	Callback = function(state)
+		useBeam = state
+	end
+})
+
+Tab:Toggle({
+	Title = "开启枪械光环打击声音",
+	Value = false,
+	Callback = function(state)
+		useSound = state
+	end
+})
+
+Tab:Colorpicker({  
+	Title = "射线颜色",  
+	Default = currentBeamColor,  
+	Callback = function(color)  
+		currentBeamColor = color
+		config.BeamColor = {math.round(color.R * 255), math.round(color.G * 255), math.round(color.B * 255)}
+		saveConfig()
+	end  
 })
