@@ -1,3 +1,28 @@
+local mt = getrawmetatable(game)
+local oldNamecall = mt.__namecall
+local oldIndex = mt.__index
+
+setreadonly(mt, false)
+
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    if tostring(method):lower() == "kick" and self == game:GetService("Players").LocalPlayer then
+        return
+    end
+    return oldNamecall(self, ...)
+end)
+
+mt.__index = newcclosure(function(self, key)
+    if tostring(key):lower() == "kick" and self == game:GetService("Players").LocalPlayer then
+        return newcclosure(function() 
+            return
+        end)
+    end
+    return oldIndex(self, key)
+end)
+
+setreadonly(mt, true)
+
 local LogService = game:GetService("LogService")
 
 for _, c in pairs(getconnections(LogService.MessageOut)) do
@@ -552,9 +577,12 @@ task.spawn(function()
 			if sendActions then
 				local targets = getTargets()
 				if #targets > 0 then
+					local count = 0
 					for _, target in ipairs(targets) do
 						if not meleeActive or getMeleeWeapon() ~= weapon then break end
+						if count >= 3 then break end
 						if isAlive(target) and not hasShield(target) then
+							count = count + 1
 							local args = {
 								"Damage",
 								{
@@ -582,38 +610,47 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-	while task.wait(0.1) do
+	while true do
+		task.wait(0.01)
 		if rangedActive then
-			local targets = getRangedTargets()
-			if #targets > 0 then
-				local weapon = getWeapon()
-				if weapon then
-					local settings = weapon.Settings
-					for _, target in pairs(targets) do
-						if not rangedActive or getWeapon() ~= weapon then break end
-						
-						local startMuzzle = getMuzzlePosition(weapon)
-						local pos = target.part.Position
-						
-						createVisualEffects(startMuzzle, pos, target.part)
+			local weapon = getWeapon()
+			if weapon then
+				local settings = weapon:FindFirstChild("Settings")
+				local sendActions = weapon:FindFirstChild("SendActions")
+				
+				if settings and sendActions then
+					local targets = getRangedTargets()
+					if #targets > 0 then
+						local count = 0
+						for _, target in pairs(targets) do
+							if not rangedActive or getWeapon() ~= weapon then break end
+							if count >= 2 then break end
+							if isAlive(target.model) then
+								count = count + 1
+								local startMuzzle = getMuzzlePosition(weapon)
+								local pos = target.part.Position
+								
+								createVisualEffects(startMuzzle, pos, target.part)
 
-						local args = {
-							"Damage",
-							{
-								hitPart = target.part,
-								hitModel = target.model,
-								ImpactPosition = vector.create(pos.X, pos.Y, pos.Z)
-							},
-							{
-								Firerate = settings:GetAttribute("Firerate") or 0.1,
-								ProjectileAcceleration = settings:GetAttribute("ProjectileAcceleration") or vector.zero,
-								ProjectileVelocity = settings:GetAttribute("ProjectileVelocity") or 1000,
-								EnergyUssage = settings:GetAttribute("EnergyUssage") or 0,
-								Spread = settings:GetAttribute("Spread") or 0,
-								Damage = settings:GetAttribute("Damage") or 1
-							}
-						}
-						weapon.SendActions:FireServer(unpack(args))
+								local args = {
+									"Damage",
+									{
+										hitPart = target.part,
+										hitModel = target.model,
+										ImpactPosition = vector.create(pos.X, pos.Y, pos.Z)
+									},
+									{
+										Firerate = settings:GetAttribute("Firerate") or 0.1,
+										ProjectileAcceleration = settings:GetAttribute("ProjectileAcceleration") or vector.zero,
+										ProjectileVelocity = settings:GetAttribute("ProjectileVelocity") or 1000,
+										EnergyUssage = settings:GetAttribute("EnergyUssage") or 0,
+										Spread = settings:GetAttribute("Spread") or 0,
+										Damage = settings:GetAttribute("Damage") or 1
+									}
+								}
+								sendActions:FireServer(unpack(args))
+							end
+						end
 					end
 				end
 			end
