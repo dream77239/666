@@ -5297,6 +5297,7 @@ local currentRooms = workspace:WaitForChild("CurrentRooms")
 
 local isTeleporting = false
 local tpThread = nil
+local visitedItems = {}
 
 local function findGiftLocations()
 	local locations = {}
@@ -5314,21 +5315,32 @@ local function startTeleport()
 	tpThread = task.spawn(function()
 		while isTeleporting do
 			local targetFolders = findGiftLocations()
+			local teleportedInLoop = false
+
 			for _, folder in ipairs(targetFolders) do
 				local items = folder:GetChildren()
 				for _, item in ipairs(items) do
 					if not isTeleporting then break end
-					if item:IsA("BasePart") then
-						rootPart.CFrame = item.CFrame
-						task.wait(0.2)
-					elseif item:IsA("Model") and item.PrimaryPart then
-						rootPart.CFrame = item.PrimaryPart.CFrame
-						task.wait(0.2)
+					if not visitedItems[item] then
+						if item:IsA("BasePart") then
+							visitedItems[item] = true
+							teleportedInLoop = true
+							rootPart.CFrame = item.CFrame
+							task.wait(0.2)
+						elseif item:IsA("Model") and item.PrimaryPart then
+							visitedItems[item] = true
+							teleportedInLoop = true
+							rootPart.CFrame = item.PrimaryPart.CFrame
+							task.wait(0.2)
+						end
 					end
 				end
 				if not isTeleporting then break end
 			end
-			task.wait()
+			
+			if not teleportedInLoop then
+				task.wait()
+			end
 		end
 	end)
 end
@@ -5352,12 +5364,14 @@ Tab:Toggle({
     Value = false,
     Callback = function(state)
         if state then
+            table.clear(visitedItems)
             startTeleport()
         else
             stopTeleport()
         end
     end
 })
+
 
 end
 local Tab = Window:Tab({  
