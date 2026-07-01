@@ -5224,6 +5224,142 @@ Tab:Toggle({
     end,
 })
 end
+local function xkjg()
+Window:Divider()
+local Tab = Window:Tab({  
+    Title = "功能",  
+    Icon = "house",  
+    Locked = false,
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local localPlayer = Players.LocalPlayer
+local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+local floatPart = nil
+local floatConnection = nil
+
+local function startFloating()
+	if floatPart then floatPart:Destroy() end
+	
+	floatPart = Instance.new("Part")
+	floatPart.Size = Vector3.new(6, 1, 6)
+	floatPart.Transparency = 1
+	floatPart.Anchored = true
+	floatPart.Parent = workspace
+	
+	floatConnection = RunService.RenderStepped:Connect(function()
+		if rootPart and floatPart then
+			floatPart.CFrame = rootPart.CFrame * CFrame.new(0, -3.5, 0)
+		end
+	end)
+end
+
+local function stopFloating()
+	if floatConnection then
+		floatConnection:Disconnect()
+		floatConnection = nil
+	end
+	if floatPart then
+		floatPart:Destroy()
+		floatPart = nil
+	end
+end
+
+localPlayer.CharacterAdded:Connect(function(newCharacter)
+	character = newCharacter
+	rootPart = character:WaitForChild("HumanoidRootPart")
+	if floatPart then
+		startFloating()
+	end
+end)
+
+Tab:Toggle({
+    Title = "悬浮",
+    Value = false,
+    Callback = function(state)
+        if state then
+            startFloating()
+        else
+            stopFloating()
+        end
+    end
+})
+local Players = game:GetService("Players")
+
+local localPlayer = Players.LocalPlayer
+local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+local currentRooms = workspace:WaitForChild("CurrentRooms")
+
+local isTeleporting = false
+local tpThread = nil
+
+local function findGiftLocations()
+	local locations = {}
+	for _, room in ipairs(currentRooms:GetChildren()) do
+		local giftLocation = room:FindFirstChild("GiftLocation", true)
+		if giftLocation then
+			table.insert(locations, giftLocation)
+		end
+	end
+	return locations
+end
+
+local function startTeleport()
+	isTeleporting = true
+	tpThread = task.spawn(function()
+		while isTeleporting do
+			local targetFolders = findGiftLocations()
+			for _, folder in ipairs(targetFolders) do
+				local items = folder:GetChildren()
+				for _, item in ipairs(items) do
+					if not isTeleporting then break end
+					if item:IsA("BasePart") then
+						rootPart.CFrame = item.CFrame
+						task.wait(0.2)
+					elseif item:IsA("Model") and item.PrimaryPart then
+						rootPart.CFrame = item.PrimaryPart.CFrame
+						task.wait(0.2)
+					end
+				end
+				if not isTeleporting then break end
+			end
+			task.wait()
+		end
+	end)
+end
+
+local function stopTeleport()
+	isTeleporting = false
+	if tpThread then
+		task.cancel(tpThread)
+		tpThread = nil
+	end
+end
+
+localPlayer.CharacterAdded:Connect(function(newCharacter)
+	character = newCharacter
+	rootPart = character:WaitForChild("HumanoidRootPart")
+end)
+
+Tab:Toggle({
+    Title = "自动吃金币",
+    Desc = "如果中途停下了就再次开启这个功能",
+    Value = false,
+    Callback = function(state)
+        if state then
+            startTeleport()
+        else
+            stopTeleport()
+        end
+    end
+})
+
+end
 local Tab = Window:Tab({  
     Title = "游戏选择",  
     Icon = "house",  
@@ -5251,7 +5387,8 @@ local game_functions = {
     [104522435597696] = am,
     [133277436323400] = botandgun,
     [13977939077] = chain,
-    [100511660000324] = bdfk
+    [100511660000324] = bdfk,
+    [100588763114828] = xkjg
 }
 
 local function check_game()
@@ -5333,5 +5470,11 @@ Tab:Button({
     Title = "本地疯狂",
     Callback = function()
     bdfk()
+    end
+})
+Tab:Button({
+    Title = "虚空景观",
+    Callback = function()
+    xkjg()
     end
 })
