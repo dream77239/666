@@ -308,7 +308,7 @@ ToggleBtn.MouseButton1Click:Connect(function()
 						})
 					end
 				end
-				task.wait(0.08) -- 保持 100ms 的高速触发频率
+				task.wait(0.1) -- 保持 100ms 的高速触发频率
 			end
 		end)
 	else
