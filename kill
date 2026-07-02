@@ -1,0 +1,330 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
+LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
+	Character = NewCharacter
+end)
+
+--// 安全加密签名核心生成逻辑
+local function _h32(p19, p20)
+	local v21 = p20 % 4294967296
+	for v22 = 1, #p19 do
+		local v23 = string.byte
+		local v24 = bit32.bxor(v21, v23(p19, v22))
+		local v25 = v24 % 65536
+		local v26 = v24 / 65536
+		local v27 = math.floor(v26) % 65536
+		v21 = (v25 * 403 + (v25 * 256 + v27 * 403) % 65536 * 65536) % 4294967296
+	end
+	local v28 = bit32.rshift(v21, 16)
+	local v29 = bit32.bxor(v21, v28)
+	local v30 = v29 % 65536
+	local v31 = v29 / 65536
+	local v32 = math.floor(v31) % 65536
+	local v33 = (v30 * 51819 + (v30 * 34283 + v32 * 51819) % 65536 * 65536) % 4294967296
+	local v34 = bit32.rshift(v33, 13)
+	local v35 = bit32.bxor(v33, v34)
+	local v36 = v35 % 65536
+	local v37 = v35 / 65536
+	local v38 = math.floor(v37) % 65536
+	local v39 = (v36 * 44597 + (v36 * 49842 + v38 * 44597) % 65536 * 65536) % 4294967296
+	local v40 = bit32.rshift(v39, 16)
+	return bit32.bxor(v39, v40) % 4294967296
+end
+
+local v_u_42 = {
+	"Type",
+	"SlamType",
+	"Position",
+	"Limb",
+	"Hit",
+	"Humanoid"
+}
+
+local function _canon(p43)
+	local v44 = {}
+	for _, v45 in ipairs(v_u_42) do
+		local v46 = p43[v45]
+		if v46 ~= nil then
+			local v47 = typeof(v46)
+			local v48
+			if v47 == "Instance" then
+				v48 = v46.Name
+			elseif v47 == "Vector3" then
+				v48 = string.format("%.2f,%.2f,%.2f", v46.X, v46.Y, v46.Z)
+			elseif v47 == "number" then
+				v48 = string.format("%.4g", v46)
+			else
+				v48 = tostring(v46)
+			end
+			v44[#v44 + 1] = v45 .. "=" .. v48
+		end
+	end
+	return table.concat(v44, "&")
+end
+
+local v_u_50 = nil
+local function _getSeed()
+	local v_u_18 = LocalPlayer:WaitForChild("C")
+	v_u_50 = v_u_50 or v_u_18:GetAttribute("K")
+	if not v_u_50 then
+		repeat
+			task.wait()
+		until v_u_18:GetAttribute("K")
+		v_u_50 = v_u_18:GetAttribute("K")
+	end
+	return v_u_50
+end
+
+local v_u_52 = 0
+local function SecureFire(p53)
+	local v_u_18 = LocalPlayer:WaitForChild("C")
+	local v54 = _getSeed()
+	local v55 = workspace:GetServerTimeNow() * 1000 + 0.5
+	local v56 = math.floor(v55) / 1000
+	if v56 <= v_u_52 then
+		v56 = v_u_52 + 0.001
+	end
+	v_u_52 = v56
+	local v57 = v56 / 6
+	local v58 = math.floor(v57)
+	local v59 = v54 .. "|" .. tostring(v58)
+	local v60 = string.format("%08x%08x", _h32(v59, 2166136261), (_h32(v59, 2654435761))) .. "#" .. string.format("%.3f", v56) .. "#" .. _canon(p53)
+	
+	v_u_18:FireServer({
+		["p"] = p53,
+		["t"] = v56,
+		["s"] = string.format("%08x%08x", _h32(v60, 2166136261), (_h32(v60, 2654435761)))
+	})
+end
+
+--// UI 界面构建
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "UI_Container"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+pcall(function()
+	ScreenGui.Parent = CoreGui
+end)
+if not ScreenGui.Parent then
+	ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 130, 0, 95)
+MainFrame.Position = UDim2.new(0.5, -65, 0.4, -47)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+local DragArea = Instance.new("Frame")
+DragArea.Name = "DragArea"
+DragArea.Size = UDim2.new(1, 0, 0, 35)
+DragArea.Position = UDim2.new(0, 0, 0, 0)
+DragArea.BackgroundTransparency = 1
+DragArea.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Size = UDim2.new(1, -30, 1, 0)
+Title.Position = UDim2.new(0, 8, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "KillAura"
+Title.TextColor3 = Color3.fromRGB(235, 235, 235)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 16
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = DragArea
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Name = "CloseBtn"
+CloseBtn.Size = UDim2.new(0, 25, 0, 25)
+CloseBtn.Position = UDim2.new(1, -28, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(240, 70, 70)
+CloseBtn.Font = Enum.Font.SourceSansBold
+CloseBtn.TextSize = 14
+CloseBtn.Parent = DragArea
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 4)
+CloseCorner.Parent = CloseBtn
+
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Name = "ContentFrame"
+ContentFrame.Size = UDim2.new(1, 0, 1, -35)
+ContentFrame.Position = UDim2.new(0, 0, 0, 35)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Parent = MainFrame
+
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "ToggleBtn"
+ToggleBtn.Size = UDim2.new(1, -16, 0, 45)
+ToggleBtn.Position = UDim2.new(0, 8, 0, 5)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+ToggleBtn.Text = "OFF"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.Font = Enum.Font.SourceSansBold
+ToggleBtn.TextSize = 18
+ToggleBtn.Parent = ContentFrame
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 6)
+ToggleCorner.Parent = ToggleBtn
+
+--// 拖拽与双击最小化功能
+local function MakeDraggable(dragFrame, targetFrame)
+	local dragging = false
+	local dragInput
+	local dragStart
+	local startPos
+
+	local function update(input)
+		local delta = input.Position - dragStart
+		targetFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
+
+	dragFrame.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = targetFrame.Position
+
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+
+	dragFrame.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+			dragInput = input
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if input == dragInput and dragging then
+			update(input)
+		end
+	end)
+end
+
+MakeDraggable(DragArea, MainFrame)
+
+local IsMinimized = false
+local OriginalSize = MainFrame.Size
+
+Title.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		local clickTime = os.clock()
+		local connection
+		connection = UserInputService.InputBegan:Connect(function(nextInput)
+			if nextInput.UserInputType == Enum.UserInputType.MouseButton1 or nextInput.UserInputType == Enum.UserInputType.Touch then
+				if os.clock() - clickTime < 0.3 then
+					IsMinimized = not IsMinimized
+					if IsMinimized then
+						ContentFrame.Visible = false
+						MainFrame.Size = UDim2.new(0, OriginalSize.X.Offset, 0, 35)
+					else
+						MainFrame.Size = OriginalSize
+						ContentFrame.Visible = true
+					end
+				end
+				connection:Disconnect()
+			end
+		end)
+		task.delay(0.3, function()
+			if connection then connection:Disconnect() end
+		end)
+	end
+end)
+
+--// 核心逻辑：获取 20 码内最近的有效目标
+local function GetClosestTarget()
+	if not Character or not Character:FindFirstChild("HumanoidRootPart") then return nil end
+	
+	local ClosestPlayer = nil
+	local MinDistance = 20 -- 范围限制修改为 20 码
+	local LocalPos = Character.HumanoidRootPart.Position
+	
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Character:FindFirstChild("Humanoid") then
+			local Char = p.Character
+			local Hum = Char.Humanoid
+			
+			-- 确保目标活着且未处于无敌/护盾状态
+			if Hum.Health > 0 and not Char:FindFirstChild("ForceField") and not Char:GetAttribute("Shield") then
+				local Distance = (Char.Head.Position - LocalPos).Magnitude
+				if Distance < MinDistance then
+					MinDistance = Distance -- 刷新最小距离，锁定最近玩家
+					ClosestPlayer = p
+				end
+			end
+		end
+	end
+	return ClosestPlayer
+end
+
+--// 功能控制开关
+local Toggled = false
+local RunningLoop = nil
+
+ToggleBtn.MouseButton1Click:Connect(function()
+	Toggled = not Toggled
+	if Toggled then
+		ToggleBtn.Text = "ON"
+		ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+		
+		RunningLoop = task.spawn(function()
+			while Toggled do
+				local TargetPlayer = GetClosestTarget()
+				if TargetPlayer and Character and Character:FindFirstChild("Left Arm") then
+					local TargetChar = TargetPlayer.Character
+					local TargetHead = TargetChar:FindFirstChild("Head")
+					local TargetHum = TargetChar:FindFirstChild("Humanoid")
+					
+					-- 再次验证目标状态并直接触发命中 (去除了 Swing 事件)
+					if TargetHead and TargetHum and TargetHead.Parent and TargetHum.Parent then
+						SecureFire({
+							Type = "Input",
+							Hit = TargetHead,
+							Limb = Character:FindFirstChild("Left Arm"),
+							Position = TargetHead.Position,
+							Humanoid = TargetHum
+						})
+					end
+				end
+				task.wait(0.1) -- 保持 100ms 的高速触发频率
+			end
+		end)
+	else
+		ToggleBtn.Text = "OFF"
+		ToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+		if RunningLoop then
+			task.cancel(RunningLoop)
+			RunningLoop = nil
+		end
+	end
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+	Toggled = false
+	if RunningLoop then
+		task.cancel(RunningLoop)
+	end
+	ScreenGui:Destroy()
+end)
