@@ -10,7 +10,6 @@ LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
 	Character = NewCharacter
 end)
 
---// 安全加密签名核心生成逻辑
 local function _h32(p19, p20)
 	local v21 = p20 % 4294967296
 	for v22 = 1, #p19 do
@@ -103,7 +102,6 @@ local function SecureFire(p53)
 	})
 end
 
---// UI 界面构建
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "UI_Container"
 ScreenGui.ResetOnSpawn = false
@@ -117,8 +115,8 @@ end
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 130, 0, 95)
-MainFrame.Position = UDim2.new(0.5, -65, 0.4, -47)
+MainFrame.Size = UDim2.new(0, 130, 0, 200)
+MainFrame.Position = UDim2.new(0.5, -65, 0.4, -100)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -184,7 +182,36 @@ local ToggleCorner = Instance.new("UICorner")
 ToggleCorner.CornerRadius = UDim.new(0, 6)
 ToggleCorner.Parent = ToggleBtn
 
---// 拖拽与双击最小化功能
+local GrabBtn = Instance.new("TextButton")
+GrabBtn.Name = "GrabBtn"
+GrabBtn.Size = UDim2.new(1, -16, 0, 45)
+GrabBtn.Position = UDim2.new(0, 8, 0, 55)
+GrabBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+GrabBtn.Text = "Grab: OFF"
+GrabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+GrabBtn.Font = Enum.Font.SourceSansBold
+GrabBtn.TextSize = 18
+GrabBtn.Parent = ContentFrame
+
+local GrabCorner = Instance.new("UICorner")
+GrabCorner.CornerRadius = UDim.new(0, 6)
+GrabCorner.Parent = GrabBtn
+
+local StompBtn = Instance.new("TextButton")
+StompBtn.Name = "StompBtn"
+StompBtn.Size = UDim2.new(1, -16, 0, 45)
+StompBtn.Position = UDim2.new(0, 8, 0, 105)
+StompBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+StompBtn.Text = "Stomp: OFF"
+StompBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StompBtn.Font = Enum.Font.SourceSansBold
+StompBtn.TextSize = 18
+StompBtn.Parent = ContentFrame
+
+local StompCorner = Instance.new("UICorner")
+StompCorner.CornerRadius = UDim.new(0, 6)
+StompCorner.Parent = StompBtn
+
 local function MakeDraggable(dragFrame, targetFrame)
 	local dragging = false
 	local dragInput
@@ -253,24 +280,23 @@ Title.InputBegan:Connect(function(input)
 	end
 end)
 
---// 核心逻辑：获取 20 码内最近的有效目标
 local function GetClosestTarget()
 	if not Character or not Character:FindFirstChild("HumanoidRootPart") then return nil end
 	
 	local ClosestPlayer = nil
-	local MinDistance = 20 -- 范围限制修改为 20 码
+	local MinDistance = 25
 	local LocalPos = Character.HumanoidRootPart.Position
 	
 	for _, p in ipairs(Players:GetPlayers()) do
-		if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Character:FindFirstChild("Humanoid") then
+		if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Humanoid") then
 			local Char = p.Character
 			local Hum = Char.Humanoid
+			local TargetPart = Char:FindFirstChild("HumanoidRootPart") or Char:FindFirstChild("Head")
 			
-			-- 确保目标活着且未处于无敌/护盾状态
-			if Hum.Health > 0 and not Char:FindFirstChild("ForceField") and not Char:GetAttribute("Shield") then
-				local Distance = (Char.Head.Position - LocalPos).Magnitude
+			if TargetPart and Hum.Health > 0 and not Char:FindFirstChild("ForceField") and not Char:GetAttribute("Shield") then
+				local Distance = (TargetPart.Position - LocalPos).Magnitude
 				if Distance < MinDistance then
-					MinDistance = Distance -- 刷新最小距离，锁定最近玩家
+					MinDistance = Distance
 					ClosestPlayer = p
 				end
 			end
@@ -279,7 +305,6 @@ local function GetClosestTarget()
 	return ClosestPlayer
 end
 
---// 功能控制开关
 local Toggled = false
 local RunningLoop = nil
 
@@ -297,7 +322,6 @@ ToggleBtn.MouseButton1Click:Connect(function()
 					local TargetHead = TargetChar:FindFirstChild("Head")
 					local TargetHum = TargetChar:FindFirstChild("Humanoid")
 					
-					-- 再次验证目标状态并直接触发命中 (去除了 Swing 事件)
 					if TargetHead and TargetHum and TargetHead.Parent and TargetHum.Parent then
 						SecureFire({
 							Type = "Input",
@@ -308,7 +332,7 @@ ToggleBtn.MouseButton1Click:Connect(function()
 						})
 					end
 				end
-				task.wait(0.1) -- 保持 100ms 的高速触发频率
+				task.wait(0.12)
 			end
 		end)
 	else
@@ -321,10 +345,93 @@ ToggleBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
+local GrabToggled = false
+local GrabLoop = nil
+
+GrabBtn.MouseButton1Click:Connect(function()
+	GrabToggled = not GrabToggled
+	if GrabToggled then
+		GrabBtn.Text = "Grab: ON"
+		GrabBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+		
+		GrabLoop = task.spawn(function()
+			while GrabToggled do
+				local TargetPlayer = GetClosestTarget()
+				if TargetPlayer and TargetPlayer.Character then
+					local TargetChar = TargetPlayer.Character
+					local TargetHum = TargetChar:FindFirstChild("Humanoid")
+					local TargetHead = TargetChar:FindFirstChild("Head")
+					
+					if TargetHum and TargetHead and TargetHead.Parent and TargetHum.Parent then
+						SecureFire({
+							Type = "Grab",
+							SlamType = 3,
+							Position = TargetHead.Position,
+							Limb = Character and Character:FindFirstChild("Left Arm") or nil,
+							Hit = TargetHead,
+							Humanoid = TargetHum
+						})
+					end
+				end
+				task.wait(1.5)
+			end
+		end)
+	else
+		GrabBtn.Text = "Grab: OFF"
+		GrabBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+		if GrabLoop then
+			task.cancel(GrabLoop)
+			GrabLoop = nil
+		end
+	end
+end)
+
+local StompToggled = false
+local StompLoop = nil
+
+StompBtn.MouseButton1Click:Connect(function()
+	StompToggled = not StompToggled
+	if StompToggled then
+		StompBtn.Text = "Stomp: ON"
+		StompBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+		
+		StompLoop = task.spawn(function()
+			while StompToggled do
+				local TargetPlayer = GetClosestTarget()
+				if TargetPlayer and TargetPlayer.Character and Character and Character:FindFirstChild("Right Leg") then
+					local TargetChar = TargetPlayer.Character
+					local TargetHum = TargetChar:FindFirstChild("Humanoid")
+					local TargetHead = TargetChar:FindFirstChild("Head")
+					
+					if TargetHum and TargetHead and TargetHead.Parent and TargetHum.Parent then
+						SecureFire({
+							Type = "Stomp",
+							Hit = TargetHead,
+							Limb = Character:FindFirstChild("Right Leg"),
+							Position = TargetHead.Position,
+							Humanoid = TargetHum
+						})
+					end
+				end
+				task.wait(1.2)
+			end
+		end)
+	else
+		StompBtn.Text = "Stomp: OFF"
+		StompBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+		if StompLoop then
+			task.cancel(StompLoop)
+			StompLoop = nil
+		end
+	end
+end)
+
 CloseBtn.MouseButton1Click:Connect(function()
 	Toggled = false
-	if RunningLoop then
-		task.cancel(RunningLoop)
-	end
+	GrabToggled = false
+	StompToggled = false
+	if RunningLoop then task.cancel(RunningLoop) end
+	if GrabLoop then task.cancel(GrabLoop) end
+	if StompLoop then task.cancel(StompLoop) end
 	ScreenGui:Destroy()
 end)
