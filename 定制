@@ -5374,6 +5374,212 @@ Tab:Toggle({
 
 
 end
+local function fssd()
+Window:Divider()
+local Tab = Window:Tab({  
+    Title = "功能",  
+    Icon = "house",  
+    Locked = false,
+})
+Tab:Button({
+    Title = "汉化飞行",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/fly/refs/heads/main/README.md"))()
+    end
+})
+Tab:Toggle({
+    Title = "透视死妈怪物",
+    Value = false,
+    Callback = function(state)
+        _G.LeviathanESP = state
+        if state then
+            local function createESP(obj)
+                if obj:FindFirstChild("LeviathanHighlight") or obj:FindFirstChild("LeviathanBillboard") then return end
+                
+                local highlight = Instance.new("Highlight")
+                highlight.Name = "LeviathanHighlight"
+                highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                highlight.FillTransparency = 0.5
+                highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+                highlight.OutlineTransparency = 0
+                highlight.Adornee = obj
+                highlight.Parent = obj
+
+                local billboard = Instance.new("BillboardGui")
+                billboard.Name = "LeviathanBillboard"
+                billboard.Size = UDim2.new(0, 200, 0, 50)
+                billboard.AlwaysOnTop = true
+                billboard.ExtentsOffset = Vector3.new(0, 3, 0)
+                billboard.Adornee = obj
+                billboard.Parent = obj
+
+                local textLabel = Instance.new("TextLabel")
+                textLabel.Size = UDim2.new(1, 0, 1, 0)
+                textLabel.BackgroundTransparency = 1
+                textLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+                textLabel.TextSize = 14
+                textLabel.Font = Enum.Font.SourceSansBold
+                textLabel.TextStrokeTransparency = 0
+                textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                textLabel.Parent = billboard
+
+                return textLabel
+            end
+
+            task.spawn(function()
+                local localPlayer = game:GetService("Players").LocalPlayer
+                while _G.LeviathanESP do
+                    for _, child in ipairs(workspace:GetChildren()) do
+                        if string.find(string.lower(child.Name), "leviathan") then
+                            local currentHighlight = child:FindFirstChild("LeviathanHighlight")
+                            local billboard = child:FindFirstChild("LeviathanBillboard")
+                            local textLabel = billboard and billboard:FindFirstChildOfClass("TextLabel")
+                            
+                            if not currentHighlight or not billboard then
+                                textLabel = createESP(child)
+                            elseif currentHighlight.OutlineColor ~= Color3.fromRGB(255, 0, 0) then
+                                currentHighlight.FillColor = Color3.fromRGB(255, 0, 0)
+                                currentHighlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+                                currentHighlight.OutlineTransparency = 0
+                            end
+
+                            if textLabel and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                                local primary = child:IsA("Model") and child.PrimaryPart or child:FindFirstChildWhichIsA("BasePart")
+                                if primary then
+                                    local distance = math.floor((localPlayer.Character.HumanoidRootPart.Position - primary.Position).Magnitude)
+                                    textLabel.Text = child.Name .. " [" .. distance .. "m]"
+                                else
+                                    textLabel.Text = child.Name
+                                end
+                            end
+                        end
+                    end
+                    task.wait(0.5)
+                end
+            end)
+        else
+            for _, child in ipairs(workspace:GetChildren()) do
+                local highlight = child:FindFirstChild("LeviathanHighlight")
+                if highlight then
+                    highlight:Destroy()
+                end
+                local billboard = child:FindFirstChild("LeviathanBillboard")
+                if billboard then
+                    billboard:Destroy()
+                end
+            end
+        end
+    end
+})
+
+local UIS = Game:GetService("UserInputService")
+local RunService = Game:GetService("RunService")
+local Players = Game:GetService("Players")
+local ReplicatedStorage = Game:GetService("ReplicatedStorage")
+local Workspace = Game:GetService("Workspace")
+local HttpService = Game:GetService("HttpService")
+
+local LocalPlayer = Players.LocalPlayer
+local AutoChestActive = false
+
+local function GetLidParts(root, list)
+	list = list or {}
+	for _, child in ipairs(root:GetChildren()) do
+		if not child:IsA("Folder") then
+			if child.Name == "Lid" and child:IsA("Model") then
+				local part = child:FindFirstChild("Part")
+				if part and part:FindFirstChildWhichIsA("ProximityPrompt") then
+					table.insert(list, part)
+				end
+			end
+			GetLidParts(child, list)
+		end
+	end
+	return list
+end
+
+local function FirePrompt(prompt)
+	if fireproximityprompt then
+		fireproximityprompt(prompt)
+	else
+		task.spawn(function()
+			prompt:InputBegan(Enum.UserInputType.MouseButton1)
+			task.wait(prompt.HoldDuration + 0.05)
+			prompt:InputEnded(Enum.UserInputType.MouseButton1)
+		end)
+	end
+end
+
+local function CheckNearbyPrompts(rootPart)
+	for _, desc in ipairs(Workspace:GetDescendants()) do
+		if desc:IsA("ProximityPrompt") and desc.Enabled then
+			local parentPart = desc.Parent
+			if parentPart and parentPart:IsA("BasePart") then
+				local d = (rootPart.Position - parentPart.Position).Magnitude
+				if d <= 4 then
+					return desc
+				end
+			end
+		end
+	end
+	return nil
+end
+
+local function TeleportPlayer(pos)
+	if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
+	end
+end
+
+task.spawn(function()
+	while task.wait(0.1) do
+		if AutoChestActive then
+			local char = LocalPlayer.Character
+			local hrp = char and char:FindFirstChild("HumanoidRootPart")
+			if hrp then
+				local targets = GetLidParts(Workspace)
+				if #targets > 0 then
+					for _, part in ipairs(targets) do
+						if not AutoChestActive then break end
+						local prompt = part:FindFirstChildWhichIsA("ProximityPrompt")
+						if prompt and prompt.Enabled then
+							hrp.CFrame = part.CFrame
+							task.wait(0.2)
+							FirePrompt(prompt)
+							task.wait(0.4)
+							
+							while AutoChestActive do
+								local lootPrompt = CheckNearbyPrompts(hrp)
+								if lootPrompt then
+									FirePrompt(lootPrompt)
+									task.wait(0.2)
+								else
+									break
+								end
+							end
+						end
+					end
+				else
+					task.wait(0.5)
+				end
+			end
+		end
+	end
+end)
+
+Tab:Toggle({
+    Title = "自动拾取宝箱",
+    Value = false,
+    Callback = function(state)
+        AutoChestActive = state
+        if not state then
+            task.wait(0.1)
+            TeleportPlayer(Vector3.new(108.64, 267.81, -51.27))
+        end
+    end
+})
+
+end
 local Tab = Window:Tab({  
     Title = "游戏选择",  
     Icon = "house",  
@@ -5402,7 +5608,8 @@ local game_functions = {
     [133277436323400] = botandgun,
     [13977939077] = chain,
     [100511660000324] = bdfk,
-    [100588763114828] = xkjg
+    [100588763114828] = xkjg,
+    [116802177276368] = fssd
 }
 
 local function check_game()
@@ -5490,5 +5697,11 @@ Tab:Button({
     Title = "虚空景观",
     Callback = function()
     xkjg()
+    end
+})
+Tab:Button({
+    Title = "粉碎深度",
+    Callback = function()
+    fssd()
     end
 })
