@@ -5471,7 +5471,11 @@ Tab:Toggle({
         end
     end
 })
-
+local Tab = Window:Tab({  
+    Title = "自动收集",  
+    Icon = "tractor",  
+    Locked = false,
+})
 local UIS = Game:GetService("UserInputService")
 local RunService = Game:GetService("RunService")
 local Players = Game:GetService("Players")
@@ -5578,6 +5582,132 @@ Tab:Toggle({
         end
     end
 })
+local UIS = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+
+local states = {
+    GiverCoins = false,
+    BasicBlueprint = false,
+    Battery = false,
+    Flares = false
+}
+
+local function tpToDefault()
+    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+        LP.Character.HumanoidRootPart.CFrame = CFrame.new(116.40, 267.81, -50.77)
+    end
+end
+
+local function runLoop(key, checkFunc)
+    task.spawn(function()
+        while true do
+            task.wait()
+            if states[key] then
+                local targets = {}
+                for _, v in ipairs(workspace:GetDescendants()) do
+                    if checkFunc(v) then
+                        table.insert(targets, v)
+                    end
+                end
+                
+                for i = #targets, 2, -1 do
+                    local j = math.random(i)
+                    targets[i], targets[j] = targets[j], targets[i]
+                end
+                
+                for _, target in ipairs(targets) do
+                    if not states[key] then break end
+                    local prompt = nil
+                    for _, desc in ipairs(target:GetDescendants()) do
+                        if desc:IsA("ProximityPrompt") then
+                            prompt = desc
+                            break
+                        end
+                    end
+                    if prompt and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                        local cf = nil
+                        if target:IsA("BasePart") then
+                            cf = target.CFrame
+                        elseif target:IsA("Model") then
+                            cf = target:GetPivot()
+                        end
+                        if cf then
+                            LP.Character.HumanoidRootPart.CFrame = cf
+                            task.wait(0.1)
+                            if fireproximityprompt then
+                                fireproximityprompt(prompt)
+                            else
+                                prompt:InputBegan(Enum.UserInputType.MouseButton1)
+                            end
+                            task.wait(0.2)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+Tab:Toggle({
+    Title = "自动收集金币",
+    Value = false,
+    Callback = function(state)
+        states.GiverCoins = state
+        if not state then
+            tpToDefault()
+        end
+    end
+})
+
+Tab:Toggle({
+    Title = "自动收集蓝图",
+    Value = false,
+    Callback = function(state)
+        states.BasicBlueprint = state
+        if not state then
+            tpToDefault()
+        end
+    end
+})
+
+Tab:Toggle({
+    Title = "自动收集电池",
+    Value = false,
+    Callback = function(state)
+        states.Battery = state
+        if not state then
+            tpToDefault()
+        end
+    end
+})
+
+Tab:Toggle({
+    Title = "自动收集荧光棒",
+    Value = false,
+    Callback = function(state)
+        states.Flares = state
+        if not state then
+            tpToDefault()
+        end
+    end
+})
+
+runLoop("GiverCoins", function(v)
+    return string.sub(v.Name, 1, 11) == "Giver_Coins"
+end)
+
+runLoop("BasicBlueprint", function(v)
+    return string.sub(v.Name, -14) == "BasicBlueprint"
+end)
+
+runLoop("Battery", function(v)
+    return string.sub(v.Name, -7) == "Battery"
+end)
+
+runLoop("Flares", function(v)
+    return string.sub(v.Name, -6) == "Flares"
+end)
 
 end
 local Tab = Window:Tab({  
