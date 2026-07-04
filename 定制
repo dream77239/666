@@ -5708,6 +5708,155 @@ end)
 runLoop("Flares", function(v)
     return string.sub(v.Name, -6) == "Flares"
 end)
+local Tab = Window:Tab({  
+    Title = "传送类",  
+    Icon = "zap",  
+    Locked = false,
+})
+Tab:Button({
+    Title = "自动复制坐标",
+    Callback = function()
+        local lplayer = game:GetService("Players").LocalPlayer
+        if lplayer and lplayer.Character and lplayer.Character:FindFirstChild("HumanoidRootPart") then
+            local pos = lplayer.Character.HumanoidRootPart.Position
+            local strPos = string.format("%.2f, %.2f, %.2f", pos.X, pos.Y, pos.Z)
+            setclipboard(strPos)
+            _G.GlobalSavedPos = lplayer.Character.HumanoidRootPart.CFrame
+            WindUI:Notify({
+                Title = "已自动复制",
+                Content = "坐标已自动复制进你的粘贴板里",
+                Icon = "clipboard",
+                Duration = 3,
+                CanClose = true,
+            })
+        end
+    end
+})
+
+Tab:Input({
+    Title = "放置坐标 1",
+    Value = "0, 0, 0",
+    Placeholder = "X, Y, Z",
+    Callback = function(input)
+        local coords = {}
+        for num in string.gmatch(input, "[^, ]+") do
+            table.insert(coords, tonumber(num))
+        end
+        if #coords >= 3 then
+            _G.GroupSavedPos1 = CFrame.new(coords[1], coords[2], coords[3])
+        end
+    end
+})
+
+Tab:Button({
+    Title = "传送至你放置的坐标 1",
+    Callback = function()
+        local lplayer = game:GetService("Players").LocalPlayer
+        if lplayer and lplayer.Character and lplayer.Character:FindFirstChild("HumanoidRootPart") and _G.GroupSavedPos1 then
+            lplayer.Character.HumanoidRootPart.CFrame = _G.GroupSavedPos1
+        end
+    end
+})
+
+Tab:Input({
+    Title = "放置坐标 2",
+    Value = "0, 0, 0",
+    Placeholder = "X, Y, Z",
+    Callback = function(input)
+        local coords = {}
+        for num in string.gmatch(input, "[^, ]+") do
+            table.insert(coords, tonumber(num))
+        end
+        if #coords >= 3 then
+            _G.GroupSavedPos2 = CFrame.new(coords[1], coords[2], coords[3])
+        end
+    end
+})
+
+Tab:Button({
+    Title = "传送至你放置的坐标 2",
+    Callback = function()
+        local lplayer = game:GetService("Players").LocalPlayer
+        if lplayer and lplayer.Character and lplayer.Character:FindFirstChild("HumanoidRootPart") and _G.GroupSavedPos2 then
+            lplayer.Character.HumanoidRootPart.CFrame = _G.GroupSavedPos2
+        end
+    end
+})
+
+Tab:Input({
+    Title = "放置坐标 3",
+    Value = "0, 0, 0",
+    Placeholder = "X, Y, Z",
+    Callback = function(input)
+        local coords = {}
+        for num in string.gmatch(input, "[^, ]+") do
+            table.insert(coords, tonumber(num))
+        end
+        if #coords >= 3 then
+            _G.GroupSavedPos3 = CFrame.new(coords[1], coords[2], coords[3])
+        end
+    end
+})
+
+Tab:Button({
+    Title = "传送至你放置的坐标 3",
+    Callback = function()
+        local lplayer = game:GetService("Players").LocalPlayer
+        if lplayer and lplayer.Character and lplayer.Character:FindFirstChild("HumanoidRootPart") and _G.GroupSavedPos3 then
+            lplayer.Character.HumanoidRootPart.CFrame = _G.GroupSavedPos3
+        end
+    end
+})
+
+Tab:Input({
+    Title = "放置坐标 4",
+    Value = "0, 0, 0",
+    Placeholder = "X, Y, Z",
+    Callback = function(input)
+        local coords = {}
+        for num in string.gmatch(input, "[^, ]+") do
+            table.insert(coords, tonumber(num))
+        end
+        if #coords >= 3 then
+            _G.GroupSavedPos4 = CFrame.new(coords[1], coords[2], coords[3])
+        end
+    end
+})
+
+Tab:Button({
+    Title = "传送至你放置的坐标 4",
+    Callback = function()
+        local lplayer = game:GetService("Players").LocalPlayer
+        if lplayer and lplayer.Character and lplayer.Character:FindFirstChild("HumanoidRootPart") and _G.GroupSavedPos4 then
+            lplayer.Character.HumanoidRootPart.CFrame = _G.GroupSavedPos4
+        end
+    end
+})
+
+Tab:Input({
+    Title = "放置坐标 5",
+    Value = "0, 0, 0",
+    Placeholder = "X, Y, Z",
+    Callback = function(input)
+        local coords = {}
+        for num in string.gmatch(input, "[^, ]+") do
+            table.insert(coords, tonumber(num))
+        end
+        if #coords >= 3 then
+            _G.GroupSavedPos5 = CFrame.new(coords[1], coords[2], coords[3])
+        end
+    end
+})
+
+Tab:Button({
+    Title = "传送至你放置的坐标 5",
+    Callback = function()
+        local lplayer = game:GetService("Players").LocalPlayer
+        if lplayer and lplayer.Character and lplayer.Character:FindFirstChild("HumanoidRootPart") and _G.GroupSavedPos5 then
+            lplayer.Character.HumanoidRootPart.CFrame = _G.GroupSavedPos5
+        end
+    end
+})
 
 end
 local Tab = Window:Tab({  
