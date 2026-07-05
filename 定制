@@ -5387,6 +5387,45 @@ Tab:Button({
         loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/fly/refs/heads/main/README.md"))()
     end
 })
+local tpwalking = false
+local tpwalkSpeed = 30
+local hum, chr
+
+local function startTPWalk()
+    task.spawn(function()
+        while tpwalking and chr and hum and hum.Parent do
+            local delta = RunService.Heartbeat:Wait()
+            if hum.MoveDirection.Magnitude > 0 then
+                chr:TranslateBy(hum.MoveDirection * tpwalkSpeed * delta)
+            end
+        end
+    end)
+end
+
+LocalPlayer.CharacterAdded:Connect(function(c)
+    chr = c
+    hum = chr:WaitForChild("Humanoid")
+    if tpwalking then startTPWalk() end
+end)
+
+Tab:Toggle({
+    Title = "速度",
+    Value = false,
+    Callback = function(state)
+        tpwalking = state
+        chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        hum = chr:FindFirstChildWhichIsA("Humanoid")
+        if state then startTPWalk() end
+    end
+})
+
+Tab:Slider({
+    Title = "速度调节",
+    Value = {Min = 0, Max = 100, Default = tpwalkSpeed},
+    Callback = function(value)
+        tpwalkSpeed = value
+    end
+})
 Tab:Toggle({
     Title = "透视死妈怪物",
     Value = false,
