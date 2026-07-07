@@ -5426,6 +5426,241 @@ Tab:Slider({
         tpwalkSpeed = value
     end
 })
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local localPlayer = Players.LocalPlayer
+
+local isEnabled = false
+local loopConnection = nil
+
+local function loopAttributes()
+    if not isEnabled then return end
+    if localPlayer and localPlayer:GetAttribute("playerUnderwater") ~= nil then
+        localPlayer:SetAttribute("playerUnderwater", false)
+    end
+end
+
+Tab:Toggle({
+    Title = "无限肺活力",
+    Value = false,
+    Callback = function(state)
+        isEnabled = state
+        if isEnabled then
+            if localPlayer and localPlayer:GetAttribute("playerUnderwater") ~= nil then
+                localPlayer:SetAttribute("playerUnderwater", false)
+            end
+            if not loopConnection then
+                loopConnection = RunService.Heartbeat:Connect(loopAttributes)
+            end
+        else
+            if loopConnection then
+                loopConnection:Disconnect()
+                loopConnection = nil
+            end
+        end
+    end
+})
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local localPlayer = Players.LocalPlayer
+
+local isEnabled = false
+local avoidDistance = 100
+local loopConnection = nil
+
+local function getEntityPosition(object)
+    if object:IsA("Model") then
+        if object.PrimaryPart then
+            return object.PrimaryPart.Position
+        else
+            return object:GetPivot().Position
+        end
+    elseif object:IsA("BasePart") then
+        return object.Position
+    end
+    return nil
+end
+
+local function handleAvoidance()
+    if not isEnabled then return end
+    
+    local character = localPlayer.Character
+    if not character then return end
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not rootPart or not humanoid then return end
+    
+    for _, v in ipairs(game.Workspace:GetDescendants()) do
+        if (v:IsA("Model") or v:IsA("BasePart")) and string.sub(v.Name, 1, 9) == "Leviathan" then
+            local entityPos = getEntityPosition(v)
+            if entityPos then
+                local currentPos = rootPart.Position
+                local distance = (currentPos - entityPos).Magnitude
+                
+                if distance < avoidDistance then
+                    local direction = (currentPos - entityPos).Unit
+                    if direction.Y ~= direction.Y then direction = Vector3.new(0, 0, 1) end
+                    
+                    local targetPosition = entityPos + (direction * (avoidDistance + 5))
+                    rootPart.CFrame = CFrame.new(Vector3.new(targetPosition.X, currentPos.Y, targetPosition.Z), Vector3.new(entityPos.X, currentPos.Y, entityPos.Z))
+                end
+            end
+        end
+    end
+end
+
+Tab:Toggle({
+    Title = "远离怪物",
+    Value = false,
+    Callback = function(state)
+        isEnabled = state
+        if isEnabled then
+            if not loopConnection then
+                loopConnection = RunService.Heartbeat:Connect(handleAvoidance)
+            end
+        else
+            if loopConnection then
+                loopConnection:Disconnect()
+                loopConnection = nil
+            end
+        end
+    end
+})
+
+Tab:Slider({
+    Title = "检测距离",
+    Value = {
+        Min = 1,
+        Max = 1000,
+        Default = 100,
+    },
+    Callback = function(value)
+        avoidDistance = value
+    end
+})
+local Tab = Window:Tab({  
+    Title = "透视",  
+    Icon = "eye",  
+    Locked = false,
+})
+local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+
+local function CreateESP(object)
+    if not object:FindFirstChild("Highlight") then
+        local hl = Instance.new("Highlight")
+        hl.Name = "Highlight"
+        hl.FillTransparency = 1
+        hl.OutlineColor = Color3.fromRGB(255, 105, 180)
+        hl.OutlineTransparency = 0
+        hl.Adornee = object
+        hl.Parent = object
+    end
+    
+    if not object:FindFirstChild("ESPWatcher") then
+        local watcher = Instance.new("BoolValue")
+        watcher.Name = "ESPWatcher"
+        watcher.Parent = object
+        
+        task.spawn(function()
+            while object:FindFirstChild("ESPWatcher") and object.Parent do
+                task.wait(1)
+                local currentHl = object:FindFirstChild("Highlight")
+                if not currentHl or currentHl.OutlineColor ~= Color3.fromRGB(255, 105, 180) then
+                    if currentHl then currentHl:Destroy() end
+                    local hl = Instance.new("Highlight")
+                    hl.Name = "Highlight"
+                    hl.FillTransparency = 1
+                    hl.OutlineColor = Color3.fromRGB(255, 105, 180)
+                    hl.OutlineTransparency = 0
+                    hl.Adornee = object
+                    hl.Parent = object
+                end
+            end
+        end)
+    end
+end
+
+local function RemoveESP(object)
+    local hl = object:FindFirstChild("Highlight")
+    local watcher = object:FindFirstChild("ESPWatcher")
+    if hl then hl:Destroy() end
+    if watcher then watcher:Destroy() end
+end
+
+local states = {
+    Giver_Coins = false,
+    BasicBlueprint = false,
+    Battery = false,
+    Flares = false
+}
+
+local function checkAndApply(object)
+    for suffix, enabled in pairs(states) do
+        if string.find(object.Name, suffix) then
+            if enabled then
+                CreateESP(object)
+            else
+                RemoveESP(object)
+            end
+            break
+        end
+    end
+end
+
+Workspace.DescendantAdded:Connect(function(descendant)
+    if descendant:IsA("BasePart") or descendant:IsA("Model") then
+        checkAndApply(descendant)
+    end
+end)
+
+local function toggleESPType(suffix, state)
+    states[suffix] = state
+    for _, v in ipairs(Workspace:GetDescendants()) do
+        if (v:IsA("BasePart") or v:IsA("Model")) and string.find(v.Name, suffix) then
+            if state then
+                CreateESP(v)
+            else
+                RemoveESP(v)
+            end
+        end
+    end
+end
+
+Tab:Toggle({
+    Title = "透视金币",
+    Value = false,
+    Callback = function(state)
+        toggleESPType("Giver_Coins", state)
+    end
+})
+
+Tab:Toggle({
+    Title = "透视蓝图",
+    Value = false,
+    Callback = function(state)
+        toggleESPType("BasicBlueprint", state)
+    end
+})
+
+Tab:Toggle({
+    Title = "透视电池",
+    Value = false,
+    Callback = function(state)
+        toggleESPType("Battery", state)
+    end
+})
+
+Tab:Toggle({
+    Title = "透视信号棒",
+    Value = false,
+    Callback = function(state)
+        toggleESPType("Flares", state)
+    end
+})
+
+
 Tab:Toggle({
     Title = "透视死妈怪物",
     Value = false,
