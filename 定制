@@ -5745,6 +5745,55 @@ Tab:Toggle({
         end
     end
 })
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+Tab:Toggle({
+    Title = "玩家透视",
+    Value = false,
+    Callback = function(state)
+        playerEspOn = state
+        if playerEspOn then
+            local function applyHighlight(parent, outlineColor)
+                if parent:FindFirstChild("_KanlHL") then return end
+                local hl = Instance.new("Highlight")
+                hl.Name = "_KanlHL"
+                hl.FillTransparency = 1
+                hl.OutlineTransparency = 0
+                hl.OutlineColor = outlineColor
+                hl.FillColor = outlineColor
+                hl.Adornee = parent
+                hl.Parent = parent
+            end
+
+            local function applyPlayerEsp(plr)
+                if plr == game:GetService("Players").LocalPlayer then return end
+                local function onChar(char)
+                    if playerEspOn then applyHighlight(char, Color3.fromRGB(0, 255, 0)) end
+                end
+                if plr.Character then onChar(plr.Character) end
+                plr.CharacterAdded:Connect(onChar)
+            end
+
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do 
+                applyPlayerEsp(plr) 
+            end
+
+            game:GetService("Players").PlayerAdded:Connect(function(plr)
+                if playerEspOn then applyPlayerEsp(plr) end
+            end)
+        else
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+                if plr ~= game:GetService("Players").LocalPlayer and plr.Character then
+                    local hl = plr.Character:FindFirstChild("_KanlHL")
+                    if hl then hl:Destroy() end
+                end
+            end
+        end
+    end
+})
 local Tab = Window:Tab({  
     Title = "自动收集",  
     Icon = "tractor",  
