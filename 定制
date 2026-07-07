@@ -5811,15 +5811,16 @@ local AutoChestActive = false
 
 local function GetLidParts(root, list)
 	list = list or {}
-	for _, child in ipairs(root:GetChildren()) do
-		if not child:IsA("Folder") then
-			if child.Name == "Lid" and child:IsA("Model") then
-				local part = child:FindFirstChild("Part")
-				if part and part:FindFirstChildWhichIsA("ProximityPrompt") then
+	for _, desc in ipairs(root:GetDescendants()) do
+		if desc:IsA("ProximityPrompt") and desc.Enabled then
+			local part = desc.Parent
+			if part and part:IsA("BasePart") then
+				local nameLower = string.lower(part.Name)
+				local parentNameLower = part.Parent and string.lower(part.Parent.Name) or ""
+				if string.find(nameLower, "chest") or string.find(nameLower, "treasure") or string.find(parentNameLower, "chest") or string.find(parentNameLower, "treasure") then
 					table.insert(list, part)
 				end
 			end
-			GetLidParts(child, list)
 		end
 	end
 	return list
@@ -5843,7 +5844,7 @@ local function CheckNearbyPrompts(rootPart)
 			local parentPart = desc.Parent
 			if parentPart and parentPart:IsA("BasePart") then
 				local d = (rootPart.Position - parentPart.Position).Magnitude
-				if d <= 4 then
+				if d <= 5 then
 					return desc
 				end
 			end
@@ -5870,7 +5871,7 @@ task.spawn(function()
 						if not AutoChestActive then break end
 						local prompt = part:FindFirstChildWhichIsA("ProximityPrompt")
 						if prompt and prompt.Enabled then
-							hrp.CFrame = part.CFrame
+							hrp.CFrame = part.CFrame * CFrame.new(0, 1.5, 0)
 							task.wait(0.2)
 							FirePrompt(prompt)
 							task.wait(0.4)
@@ -5905,6 +5906,7 @@ Tab:Toggle({
         end
     end
 })
+
 local UIS = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
