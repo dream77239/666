@@ -6184,6 +6184,237 @@ Tab:Button({
 })
 
 end
+local function xq()
+Window:Divider()
+local Tab = Window:Tab({  
+    Title = "功能",  
+    Icon = "house",  
+    Locked = false,
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local tpwalking = false
+local tpwalkSpeed = 30
+
+Tab:Toggle({
+    Title = "速度",
+    Value = false,
+    Callback = function(state)
+        tpwalking = state
+        if state then
+            spawn(function()
+                while tpwalking do
+                    local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                    local hrp = chr:FindFirstChild("HumanoidRootPart")
+                    local hum = chr:FindFirstChildWhichIsA("Humanoid")
+                    local delta = RunService.Heartbeat:Wait()
+                    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
+                        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * tpwalkSpeed * delta)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+Tab:Slider({
+    Title = "速度调节",
+    Value = {
+        Min = 0,
+        Max = 100,
+        Default = tpwalkSpeed,
+    },
+    Callback = function(value)
+        tpwalkSpeed = value
+    end
+})
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local DealDamage = ReplicatedStorage:WaitForChild("DealDamage")
+
+local AuraEnabled = false
+local VisualEnabled = false
+local AttackSpeed = 0.01
+
+local function ApplyESP(target)
+	if not AuraEnabled or not VisualEnabled then return end
+	
+	if not target:FindFirstChild("ESPHighlight") then
+		local Highlight = Instance.new("Highlight")
+		Highlight.Name = "ESPHighlight"
+		Highlight.FillColor = Color3.fromRGB(255, 0, 0)
+		Highlight.FillTransparency = 0.5
+		Highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+		Highlight.OutlineTransparency = 0
+		Highlight.Adornee = target
+		Highlight.Parent = target
+	end
+
+	if not target:FindFirstChild("ESPBillboard") then
+		local Head = target:FindFirstChild("Head")
+		if Head then
+			local Billboard = Instance.new("BillboardGui")
+			Billboard.Name = "ESPBillboard"
+			Billboard.Size = UDim2.new(0, 200, 0, 50)
+			Billboard.AlwaysOnTop = true
+			Billboard.MaxDistance = 500
+			Billboard.ExtentsOffset = Vector3.new(0, 3, 0)
+			Billboard.Adornee = Head
+
+			local TextLabel = Instance.new("TextLabel")
+			TextLabel.Size = UDim2.new(1, 0, 1, 0)
+			TextLabel.BackgroundTransparency = 1
+			TextLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+			TextLabel.TextSize = 16
+			TextLabel.Font = Enum.Font.SourceSansBold
+			TextLabel.TextStrokeTransparency = 0
+			TextLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+			TextLabel.Parent = Billboard
+
+			Billboard.Parent = target
+
+			task.spawn(function()
+				local Humanoid = target:FindFirstChildOfClass("Humanoid")
+				while AuraEnabled and VisualEnabled and target:IsDescendantOf(Workspace) and Billboard:IsDescendantOf(target) do
+					if Humanoid then
+						TextLabel.Text = math.floor(Humanoid.Health) .. " / " .. math.floor(Humanoid.MaxHealth)
+					else
+						TextLabel.Text = "N/A"
+					end
+					task.wait(AttackSpeed)
+				end
+			end)
+		end
+	end
+end
+
+local function RemoveESP(target)
+	local Highlight = target:FindFirstChild("ESPHighlight")
+	if Highlight then Highlight:Destroy() end
+	local Billboard = target:FindFirstChild("ESPBillboard")
+	if Billboard then Billboard:Destroy() end
+end
+
+local function ClearAllESP()
+	local Entities = Workspace:FindFirstChild("OT_Entities")
+	if Entities then
+		for _, child in ipairs(Entities:GetChildren()) do
+			RemoveESP(child)
+		end
+	end
+end
+
+local function GetHitBoxPart()
+	local Character = LocalPlayer.Character
+	if not Character then return nil end
+	local HitBoxes = Character:FindFirstChild("HitBoxes")
+	if not HitBoxes then return nil end
+	return HitBoxes:FindFirstChild("Weapon") or HitBoxes:FindFirstChild("HitBoxLeft")
+end
+
+task.spawn(function()
+	while true do
+		if AuraEnabled then
+			local Entities = Workspace:FindFirstChild("OT_Entities")
+			local Character = LocalPlayer.Character
+			local HitBoxPart = GetHitBoxPart()
+			
+			if Entities and Character and HitBoxPart then
+				for _, child in ipairs(Entities:GetChildren()) do
+					if not AuraEnabled then break end
+					
+					local isPlayer = Players:GetPlayerFromCharacter(child)
+					local Humanoid = child:FindFirstChildOfClass("Humanoid")
+					local Shield = child:FindFirstChild("Shield")
+					local Head = child:FindFirstChild("Head")
+					
+					if not isPlayer and Humanoid and Humanoid.Health > 0 and not Shield and Head then
+						if VisualEnabled then
+							ApplyESP(child)
+						else
+							RemoveESP(child)
+						end
+						
+						local args = {
+							{
+								Type = "Normal",
+								Melee = true,
+								HitBoxPart = HitBoxPart,
+								Part = Head,
+								Lifesteal = 0,
+								Knockback = {},
+								Status = {},
+								Character = Character,
+								Critical = 0,
+								Amount = 20,
+								Projectile = false,
+								Name = "Attack",
+								ScreenShake = 0.5,
+								TargetCharacter = child
+							},
+							{
+								Defense = {1, 1, {}, {1, 1}},
+								Power = {1, 1, {}, {1}},
+								HealingMultiplier = {1, 1, {}, {}},
+								StunTimeMultiplier = {1, 1, {}, {}},
+								CooldownRate = {1, 1, {}, {}},
+								Speed = {1, 1, {}, {}},
+								ImpairMultiplier = {1, 1, {}, {}},
+								KnockbackMultiplier = {1, 1, {}, {}},
+								HealthRegen = {1.5, 1.5, {}, {}}
+							}
+						}
+						DealDamage:FireServer(unpack(args))
+					else
+						RemoveESP(child)
+					end
+				end
+			end
+		end
+		task.wait(AttackSpeed)
+	end
+end)
+
+Tab:Toggle({
+	Title = "杀戮光环",
+	Value = false,
+	Callback = function(state)
+		AuraEnabled = state
+		if not AuraEnabled then
+			ClearAllESP()
+		end
+	end
+})
+
+Tab:Toggle({
+	Title = "杀戮光环目标可视化",
+	Value = false,
+	Callback = function(state)
+		VisualEnabled = state
+		if not VisualEnabled then
+			ClearAllESP()
+		end
+	end
+})
+
+Tab:Input({
+	Title = "杀戮光环速度",
+	Value = "0.01",
+	Placeholder = "Enter speed (e.g. 0.01)",
+	Callback = function(input)
+		local num = tonumber(input)
+		if num then
+			AttackSpeed = num
+		end
+	end
+})
+
+end
 local Tab = Window:Tab({  
     Title = "游戏选择",  
     Icon = "house",  
@@ -6213,7 +6444,8 @@ local game_functions = {
     [13977939077] = chain,
     [100511660000324] = bdfk,
     [100588763114828] = xkjg,
-    [116802177276368] = fssd
+    [116802177276368] = fssd,
+    [17220221299] = xq
 }
 
 local function check_game()
@@ -6307,5 +6539,11 @@ Tab:Button({
     Title = "粉碎深度",
     Callback = function()
     fssd()
+    end
+})
+Tab:Button({
+    Title = "序曲",
+    Callback = function()
+    xq()
     end
 })
