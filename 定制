@@ -6415,6 +6415,626 @@ Tab:Input({
 })
 
 end
+local function eye()
+Window:Divider()
+local Tab = Window:Tab({  
+    Title = "主要功能",  
+    Icon = "house",  
+    Locked = false,
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local tpwalking = false
+local tpwalkSpeed = 20
+
+Tab:Toggle({
+    Title = "速度",
+    Value = false,
+    Callback = function(state)
+        tpwalking = state
+        if state then
+            spawn(function()
+                while tpwalking do
+                    local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                    local hrp = chr:FindFirstChild("HumanoidRootPart")
+                    local hum = chr:FindFirstChildWhichIsA("Humanoid")
+                    local delta = RunService.Heartbeat:Wait()
+                    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
+                        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * tpwalkSpeed * delta)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+Tab:Slider({
+    Title = "速度调节",
+    Value = {
+        Min = 0,
+        Max = 100,
+        Default = tpwalkSpeed,
+    },
+    Callback = function(value)
+        tpwalkSpeed = value
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local localPlayer = Players.LocalPlayer
+local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+
+local config = {
+	BlinkLoop = false
+}
+
+local connections = {}
+
+local function getBlinkValue()
+	local blink = character:FindFirstChild("BlinkMeter") or localPlayer:FindFirstChild("BlinkMeter")
+	if not blink then
+		blink = character:FindFirstChild("Attributes") and character.Attributes:FindFirstChild("BlinkMeter")
+	end
+	if not blink then
+		for _, v in ipairs(character:GetDescendants()) do
+			if v.Name == "BlinkMeter" and v:IsA("ValueBase") then return v end
+		end
+		for _, v in ipairs(localPlayer:GetDescendants()) do
+			if v.Name == "BlinkMeter" and v:IsA("ValueBase") then return v end
+		end
+	end
+	return blink
+end
+
+localPlayer.CharacterAdded:Connect(function(newCharacter)
+	character = newCharacter
+end)
+
+connections["Blink"] = RunService.Heartbeat:Connect(function()
+	if config.BlinkLoop then
+		local blink = getBlinkValue()
+		if blink and blink:IsA("ValueBase") then
+			blink.Value = 20
+		elseif character then
+			pcall(function()
+				if character:GetAttribute("BlinkMeter") ~= nil then
+					character:SetAttribute("BlinkMeter", 20)
+				elseif localPlayer:GetAttribute("BlinkMeter") ~= nil then
+					localPlayer:SetAttribute("BlinkMeter", 20)
+				end
+			end)
+		end
+	end
+end)
+
+Tab:Toggle({
+	Title = "无限眨眼值",
+	Value = false,
+	Callback = function(state)
+		config.BlinkLoop = state
+	end
+})
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local staminaLoop = nil
+
+Tab:Toggle({
+    Title = "无限体力",
+    Value = false,
+    Callback = function(state)
+        if state then
+            staminaLoop = task.spawn(function()
+                while true do
+                    if LocalPlayer and LocalPlayer:FindFirstChild("CurrentStamina") then
+                        LocalPlayer.CurrentStamina.Value = 100
+                    else
+                        local char = LocalPlayer.Character
+                        if char and char:FindFirstChild("CurrentStamina") then
+                            char.CurrentStamina.Value = 100
+                        elseif char and char:GetAttribute("CurrentStamina") ~= nil then
+                            char:SetAttribute("CurrentStamina", 100)
+                        end
+                    end
+                    if LocalPlayer and LocalPlayer:GetAttribute("CurrentStamina") ~= nil then
+                        LocalPlayer:SetAttribute("CurrentStamina", 100)
+                    end
+                    task.wait()
+                end
+            end)
+        else
+            if staminaLoop then
+                task.cancel(staminaLoop)
+                staminaLoop = nil
+            end
+        end
+    end
+})
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+
+local NoclipEnabled = false
+local NoclipConnection
+
+local function setCharacterCollision(character, state)
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = state
+        end
+    end
+end
+
+local function enableNoclip()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    setCharacterCollision(character, false)
+
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+    end
+
+    NoclipConnection = RunService.Stepped:Connect(function()
+        if not NoclipEnabled then return end
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in ipairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableNoclip()
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+
+    local character = LocalPlayer.Character
+    if character then
+        setCharacterCollision(character, true)
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if NoclipEnabled then
+        task.wait(0.2)
+        enableNoclip()
+    end
+end)
+
+Tab:Toggle({
+    Title = "穿墙",
+    Value = false,
+    Callback = function(state)
+        NoclipEnabled = state
+        if state then
+            enableNoclip()
+        else
+            disableNoclip()
+        end
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+Tab:Button({
+    Title = "删除雾",
+    Callback = function()
+        local sky = game:GetService("Lighting"):FindFirstChildOfClass("Sky")
+        if sky then sky:Destroy() end
+    end,
+})
+
+Tab:Toggle({
+    Title = "地图高亮",
+    Value = false,
+    Callback = function(state)
+        local Lighting = game:GetService("Lighting")
+        if state then
+            Lighting.Brightness = 5
+            Lighting.Ambient = Color3.fromRGB(160, 160, 160)
+            Lighting.OutdoorAmbient = Color3.fromRGB(180, 180, 180)
+        else
+            Lighting.Brightness = 1
+            Lighting.Ambient = Color3.fromRGB(70, 70, 70)
+            Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+        end
+    end,
+})
+local Tab = Window:Tab({  
+    Title = "透视",  
+    Icon = "eye",  
+    Locked = false,
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local localPlayer = Players.LocalPlayer
+
+local config = {
+	EspObjectives = false
+}
+
+local connections = {}
+
+local function getObjectivesPath()
+	local map = workspace:FindFirstChild("CurrentGame") and workspace.CurrentGame:FindFirstChild("Map")
+	if map then
+		for _, child in ipairs(map:GetChildren()) do
+			local objectives = child:FindFirstChild("Objectives")
+			if objectives then
+				return objectives
+			end
+		end
+	end
+	return nil
+end
+
+local function applyEsp(object, color, tag)
+	if not object:IsA("Model") and not object:IsA("BasePart") then return end
+	local highlight = object:FindFirstChild(tag)
+	if not highlight then
+		highlight = Instance.new("Highlight")
+		highlight.Name = tag
+		highlight.FillTransparency = 1
+		highlight.OutlineColor = color
+		highlight.OutlineTransparency = 0
+		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		highlight.Parent = object
+	else
+		if highlight.OutlineColor ~= color or highlight.DepthMode ~= Enum.HighlightDepthMode.AlwaysOnTop then
+			highlight.OutlineColor = color
+			highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		end
+	end
+end
+
+local function removeEsp(object, tag)
+	local highlight = object:FindFirstChild(tag)
+	if highlight then
+		highlight:Destroy()
+	end
+end
+
+local lastUpdate = 0
+connections["EspLoop"] = RunService.Heartbeat:Connect(function()
+	local now = os.clock()
+	if now - lastUpdate < 0.1 then return end
+	lastUpdate = now
+	
+	local objectives = getObjectivesPath()
+	if objectives then
+		for _, v in ipairs(objectives:GetChildren()) do
+			if config.EspObjectives then
+				applyEsp(v, Color3.fromRGB(150, 0, 255), "ObjectiveEsp")
+			else
+				removeEsp(v, "ObjectiveEsp")
+			end
+		end
+	end
+end)
+
+Tab:Toggle({
+	Title = "透视任务",
+	Value = false,
+	Callback = function(state)
+		config.EspObjectives = state
+	end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local localPlayer = Players.LocalPlayer
+local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+
+local config = {
+	EspMonsters = false
+}
+
+local connections = {}
+
+local function applyEsp(object, color, tag)
+	if not object:IsA("Model") and not object:IsA("BasePart") then return end
+	local highlight = object:FindFirstChild(tag)
+	if not highlight then
+		highlight = Instance.new("Highlight")
+		highlight.Name = tag
+		highlight.FillTransparency = 1
+		highlight.OutlineColor = color
+		highlight.OutlineTransparency = 0
+		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		highlight.Parent = object
+	else
+		if highlight.OutlineColor ~= color or highlight.DepthMode ~= Enum.HighlightDepthMode.AlwaysOnTop then
+			highlight.OutlineColor = color
+			highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		end
+	end
+end
+
+local function removeEsp(object, tag)
+	local highlight = object:FindFirstChild(tag)
+	if highlight then
+		highlight:Destroy()
+	end
+end
+
+local lastUpdate = 0
+connections["EspLoop"] = RunService.Heartbeat:Connect(function()
+	local now = os.clock()
+	if now - lastUpdate < 0.1 then return end
+	lastUpdate = now
+
+	local monsters = workspace:FindFirstChild("CurrentGame") and workspace.CurrentGame:FindFirstChild("Monsters")
+	if monsters then
+		for _, v in ipairs(monsters:GetChildren()) do
+			if config.EspMonsters then
+				applyEsp(v, Color3.fromRGB(255, 0, 0), "MonsterEsp")
+			else
+				removeEsp(v, "MonsterEsp")
+			end
+		end
+	end
+	
+	local angels = workspace:FindFirstChild("CurrentGame") and workspace.CurrentGame:FindFirstChild("Players") and workspace.CurrentGame.Players:FindFirstChild("Angels")
+	if angels then
+		for _, v in ipairs(angels:GetChildren()) do
+			if config.EspMonsters then
+				applyEsp(v, Color3.fromRGB(255, 0, 0), "AngelEsp")
+			else
+				removeEsp(v, "AngelEsp")
+			end
+		end
+	end
+end)
+
+Tab:Toggle({
+	Title = "透视怪物",
+	Value = false,
+	Callback = function(state)
+		config.EspMonsters = state
+	end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+Tab:Toggle({
+    Title = "玩家透视",
+    Value = false,
+    Callback = function(state)
+        playerEspOn = state
+        if playerEspOn then
+            local function applyHighlight(parent, outlineColor)
+                if parent:FindFirstChild("_KanlHL") then return end
+                local hl = Instance.new("Highlight")
+                hl.Name = "_KanlHL"
+                hl.FillTransparency = 1
+                hl.OutlineTransparency = 0
+                hl.OutlineColor = outlineColor
+                hl.FillColor = outlineColor
+                hl.Adornee = parent
+                hl.Parent = parent
+            end
+
+            local function applyPlayerEsp(plr)
+                if plr == game:GetService("Players").LocalPlayer then return end
+                local function onChar(char)
+                    if playerEspOn then applyHighlight(char, Color3.fromRGB(0, 255, 0)) end
+                end
+                if plr.Character then onChar(plr.Character) end
+                plr.CharacterAdded:Connect(onChar)
+            end
+
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do 
+                applyPlayerEsp(plr) 
+            end
+
+            game:GetService("Players").PlayerAdded:Connect(function(plr)
+                if playerEspOn then applyPlayerEsp(plr) end
+            end)
+        else
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+                if plr ~= game:GetService("Players").LocalPlayer and plr.Character then
+                    local hl = plr.Character:FindFirstChild("_KanlHL")
+                    if hl then hl:Destroy() end
+                end
+            end
+        end
+    end
+})
+local Tab = Window:Tab({  
+    Title = "自动类",  
+    Icon = "tractor",  
+    Locked = false,
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local localPlayer = Players.LocalPlayer
+local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+
+local config = {
+	ObjectiveTp = false
+}
+
+local function getObjectivesPath()
+	local map = workspace:FindFirstChild("CurrentGame") and workspace.CurrentGame:FindFirstChild("Map")
+	if map then
+		for _, child in ipairs(map:GetChildren()) do
+			local objectives = child:FindFirstChild("Objectives")
+			if objectives then
+				return objectives
+			end
+		end
+	end
+	return nil
+end
+
+localPlayer.CharacterAdded:Connect(function(newCharacter)
+	character = newCharacter
+end)
+
+local function getAllInteractions(object)
+	local list = {}
+	for _, v in ipairs(object:GetDescendants()) do
+		if v:IsA("ClickDetector") or v:IsA("ProximityPrompt") then
+			table.insert(list, v)
+		end
+	end
+	return list
+end
+
+local function isLeverObject(object)
+	if object.Name == "Lever" then return true end
+	if object:FindFirstChild("Lever", true) then return true end
+	return false
+end
+
+local function fireInteraction(interact)
+	if interact:IsA("ClickDetector") then
+		fireclickdetector(interact)
+	elseif interact:IsA("ProximityPrompt") then
+		fireproximityprompt(interact)
+	end
+end
+
+task.spawn(function()
+	local firedObjects = {}
+	
+	while task.wait(0.3) do
+		if config.ObjectiveTp and character and character:FindFirstChild("HumanoidRootPart") then
+			local objectivesPath = getObjectivesPath()
+			if objectivesPath then
+				local list = objectivesPath:GetChildren()
+				local validTargets = {}
+				local leverTargets = {}
+				
+				for _, obj in ipairs(list) do
+					if not firedObjects[obj] and #getAllInteractions(obj) > 0 then
+						if isLeverObject(obj) then
+							table.insert(leverTargets, obj)
+						else
+							table.insert(validTargets, obj)
+						end
+					end
+				end
+				
+				local randomTarget = nil
+				if #validTargets > 0 then
+					randomTarget = validTargets[math.random(1, #validTargets)]
+				elseif #leverTargets > 0 then
+					randomTarget = leverTargets[math.random(1, #leverTargets)]
+				end
+				
+				if randomTarget then
+					local hrp = character:FindFirstChild("HumanoidRootPart")
+					if hrp then
+						local targetPart = randomTarget:IsA("BasePart") and randomTarget or randomTarget:FindFirstChildWhichIsA("BasePart", true)
+						if targetPart then
+							local targetCFrame = targetPart.CFrame
+							local rayOrigin = targetCFrame.Position + Vector3.new(0, 2, 0)
+							local rayDirection = Vector3.new(0, -15, 0)
+							
+							local raycastParams = RaycastParams.new()
+							raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+							raycastParams.FilterDescendantsInstances = {character, randomTarget}
+							
+							local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+							if raycastResult then
+								hrp.CFrame = CFrame.new(raycastResult.Position + Vector3.new(0, 3, 0))
+							else
+								hrp.CFrame = targetCFrame * CFrame.new(0, 0, 3)
+							end
+							
+							task.wait(0.3)
+							
+							hrp = character:FindFirstChild("HumanoidRootPart")
+							if hrp then
+								local allInteractions = getAllInteractions(randomTarget)
+								local camPosInteractions = {}
+								local leverInteractions = {}
+								local otherInteractions = {}
+								
+								local camPosObj = randomTarget:FindFirstChild("CamPos")
+								local leverObj = randomTarget:FindFirstChild("Lever")
+								
+								if camPosObj then
+									camPosInteractions = getAllInteractions(camPosObj)
+								end
+								if leverObj then
+									leverInteractions = getAllInteractions(leverObj)
+								end
+								
+								local camPosSet = {}
+								for _, v in ipairs(camPosInteractions) do camPosSet[v] = true end
+								local leverSet = {}
+								for _, v in ipairs(leverInteractions) do leverSet[v] = true end
+								for _, v in ipairs(allInteractions) do
+									if not camPosSet[v] and not leverSet[v] then
+										table.insert(otherInteractions, v)
+									end
+								end
+								
+								local function fireAll(interactions)
+									for _, interact in ipairs(interactions) do
+										if interact and interact.Parent then
+											pcall(function()
+												fireInteraction(interact)
+											end)
+											task.wait(0.08)
+											pcall(function()
+												fireInteraction(interact)
+											end)
+											task.wait(0.08)
+										end
+									end
+								end
+								
+								fireAll(camPosInteractions)
+								fireAll(otherInteractions)
+								fireAll(leverInteractions)
+								
+								local objectivesPathNew = getObjectivesPath()
+								if not objectivesPathNew or randomTarget.Parent ~= objectivesPathNew then
+									firedObjects[randomTarget] = true
+								end
+							end
+						end
+					end
+					firedObjects[randomTarget] = true
+				else
+					if not config.ObjectiveTp then
+						table.clear(firedObjects)
+					end
+				end
+			end
+		else
+			table.clear(firedObjects)
+		end
+	end
+end)
+
+Tab:Toggle({
+	Title = "自动做完全部任务",
+	Value = false,
+	Callback = function(state)
+		config.ObjectiveTp = state
+	end
+})
+end
 local Tab = Window:Tab({  
     Title = "游戏选择",  
     Icon = "house",  
@@ -6445,7 +7065,8 @@ local game_functions = {
     [100511660000324] = bdfk,
     [100588763114828] = xkjg,
     [116802177276368] = fssd,
-    [17220221299] = xq
+    [17220221299] = xq,
+    [131403226200723] = eye
 }
 
 local function check_game()
@@ -6545,5 +7166,11 @@ Tab:Button({
     Title = "序曲",
     Callback = function()
     xq()
+    end
+})
+Tab:Button({
+    Title = "不要眨眼",
+    Callback = function()
+    eye()
     end
 })
