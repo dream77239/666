@@ -1,0 +1,990 @@
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/china-ui/refs/heads/main/main%20(6).lua"))()
+local Window = WindUI:CreateWindow({
+    Title = "停电",
+    Icon = "eye",
+    IconThemed = true,
+    Author = "77",
+    Folder = "CloudHub",
+    Size = UDim2.fromOffset(500, 400),
+    Transparent = true,
+    Theme = "Light",
+    Background = nil,
+    User = {
+        Enabled = true,
+        Callback = function() end,
+        Anonymous = false
+    },
+    SideBarWidth = 200,
+    ScrollBarEnabled = true
+})
+
+local Tab = Window:Tab({  
+    Title = "主要功能",  
+    Icon = "house",  
+    Locked = false,
+})
+Tab:Button({
+    Title = "汉化飞行",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/fly/refs/heads/main/README.md"))()
+    end
+})
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local rotateFast = false
+local rotateConnection
+
+Tab:Toggle({
+	Title = "旋转",
+	Value = false,
+	Callback = function(state)
+		rotateFast = state
+		if rotateConnection then rotateConnection:Disconnect() end
+		if rotateFast then
+			rotateConnection = RunService.RenderStepped:Connect(function()
+				local character = LocalPlayer.Character
+				if character and character:FindFirstChild("HumanoidRootPart") then
+					character.HumanoidRootPart.CFrame = character.HumanoidRootPart.CFrame * CFrame.Angles(0, math.rad(90), 0)
+				end
+			end)
+		end
+	end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local tpwalking = false
+local tpwalkSpeed = 30
+
+Tab:Toggle({
+    Title = "速度",
+    Value = false,
+    Callback = function(state)
+        tpwalking = state
+        if state then
+            spawn(function()
+                while tpwalking do
+                    local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                    local hrp = chr:FindFirstChild("HumanoidRootPart")
+                    local hum = chr:FindFirstChildWhichIsA("Humanoid")
+                    local delta = RunService.Heartbeat:Wait()
+                    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
+                        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * tpwalkSpeed * delta)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+Tab:Slider({
+    Title = "速度调节",
+    Value = {
+        Min = 0,
+        Max = 100,
+        Default = tpwalkSpeed,
+    },
+    Callback = function(value)
+        tpwalkSpeed = value
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+Tab:Toggle({
+    Title = "玩家透视",
+    Value = false,
+    Callback = function(state)
+        playerEspOn = state
+        if playerEspOn then
+            local function applyHighlight(parent, outlineColor)
+                if parent:FindFirstChild("_KanlHL") then return end
+                local hl = Instance.new("Highlight")
+                hl.Name = "_KanlHL"
+                hl.FillTransparency = 1
+                hl.OutlineTransparency = 0
+                hl.OutlineColor = outlineColor
+                hl.FillColor = outlineColor
+                hl.Adornee = parent
+                hl.Parent = parent
+            end
+
+            local function applyPlayerEsp(plr)
+                if plr == game:GetService("Players").LocalPlayer then return end
+                local function onChar(char)
+                    if playerEspOn then applyHighlight(char, Color3.fromRGB(0, 255, 0)) end
+                end
+                if plr.Character then onChar(plr.Character) end
+                plr.CharacterAdded:Connect(onChar)
+            end
+
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do 
+                applyPlayerEsp(plr) 
+            end
+
+            game:GetService("Players").PlayerAdded:Connect(function(plr)
+                if playerEspOn then applyPlayerEsp(plr) end
+            end)
+        else
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+                if plr ~= game:GetService("Players").LocalPlayer and plr.Character then
+                    local hl = plr.Character:FindFirstChild("_KanlHL")
+                    if hl then hl:Destroy() end
+                end
+            end
+        end
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+
+local NoclipEnabled = false
+local NoclipConnection
+
+local function setCharacterCollision(character, state)
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = state
+        end
+    end
+end
+
+local function enableNoclip()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    setCharacterCollision(character, false)
+
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+    end
+
+    NoclipConnection = RunService.Stepped:Connect(function()
+        if not NoclipEnabled then return end
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in ipairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableNoclip()
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+
+    local character = LocalPlayer.Character
+    if character then
+        setCharacterCollision(character, true)
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if NoclipEnabled then
+        task.wait(0.2)
+        enableNoclip()
+    end
+end)
+
+Tab:Toggle({
+    Title = "穿墙",
+    Value = false,
+    Callback = function(state)
+        NoclipEnabled = state
+        if state then
+            enableNoclip()
+        else
+            disableNoclip()
+        end
+    end
+})
+local OriginalHoldTimes = {}
+local promptConnection
+local heartbeatConnection
+
+Tab:Toggle({
+    Title = "秒互动",
+    Value = false,
+    Callback = function(state)
+        if state then
+            for _, prompt in pairs(workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[prompt] then
+                        OriginalHoldTimes[prompt] = prompt.HoldDuration
+                    end
+                    prompt.HoldDuration = 0
+                end
+            end
+            promptConnection = workspace.DescendantAdded:Connect(function(obj)
+                if obj:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[obj] then
+                        OriginalHoldTimes[obj] = obj.HoldDuration
+                    end
+                    obj.HoldDuration = 0
+                end
+            end)
+            heartbeatConnection = RunService.Heartbeat:Connect(function()
+                for prompt, original in pairs(OriginalHoldTimes) do
+                    if prompt and prompt.Parent then
+                        prompt.HoldDuration = 0
+                    end
+                end
+            end)
+        else
+            if promptConnection then promptConnection:Disconnect() end
+            if heartbeatConnection then heartbeatConnection:Disconnect() end
+            for prompt, original in pairs(OriginalHoldTimes) do
+                if prompt and prompt.Parent then
+                    prompt.HoldDuration = original
+                end
+            end
+        end
+    end
+})
+
+local Tab = Window:Tab({  
+    Title = "暴力功能",  
+    Icon = "hand-fist",  
+    Locked = false,
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local Camera = Workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+local MeleeHitEvent = ReplicatedStorage:WaitForChild("MeleeStorage"):WaitForChild("Events"):WaitForChild("Hit")
+local MeleeSwingEvent = ReplicatedStorage:WaitForChild("MeleeStorage"):WaitForChild("Events"):WaitForChild("Swing")
+local GunShootEvent = ReplicatedStorage:WaitForChild("GunStorage"):WaitForChild("Events"):WaitForChild("Shoot")
+local GunHitEvent = ReplicatedStorage:WaitForChild("GunStorage"):WaitForChild("Events"):WaitForChild("Hit")
+local ReloadEvent = ReplicatedStorage:WaitForChild("GunStorage"):WaitForChild("Events"):WaitForChild("Reload")
+local DamageEvent = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Player"):WaitForChild("Damage")
+local RagdollEvent = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Player"):WaitForChild("Ragdoll")
+
+local NPCsFolder = workspace:WaitForChild("NPCs")
+local CharsFolder = workspace:WaitForChild("Chars")
+local ActiveTasksFolder = workspace:WaitForChild("ActiveTasks")
+
+local MeleeEnabled = false
+local GunEnabled = false
+local TargetType = "Players"
+
+local GCRPMEnabled = false
+local GCNorecoilEnabled = false
+local NoFallDamageEnabled = false
+local NoRagdollEnabled = false
+
+local SilentAimEnabled = false
+local WallCheckEnabled = false
+local HitPartSelection = "Head"
+local HitChance = 100
+local FOVSize = 100
+
+local VisualsEnabled = false
+local SilentAimVisualsEnabled = false
+
+local Reloading = false
+
+local cachedTarget = nil
+
+local FOV_Circle = Drawing.new("Circle")
+FOV_Circle.Visible = false
+FOV_Circle.Radius = 100
+FOV_Circle.Color = Color3.fromRGB(255, 255, 255)
+FOV_Circle.Thickness = 1
+FOV_Circle.Transparency = 1
+FOV_Circle.Filled = false
+FOV_Circle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+local SnapLine = Drawing.new("Line")
+SnapLine.Visible = false
+SnapLine.Color = Color3.fromRGB(255, 255, 255)
+SnapLine.Thickness = 1.5
+SnapLine.Transparency = 1
+SnapLine.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    FOV_Circle.Position = center
+    SnapLine.From = center
+end)
+
+local function IsValid(object)
+    if not object or not object:IsA("Model") then return false end
+    if object == LocalPlayer.Character then return false end
+    if object.Name == LocalPlayer.Name then return false end
+    
+    local humanoid = object:FindFirstChildOfClass("Humanoid")
+    local root = object:FindFirstChild("HumanoidRootPart")
+    local head = object:FindFirstChild("Head")
+    
+    if not humanoid or not root or not head or humanoid.Health <= 0 then return false end
+    if object:FindFirstChild("ForceField") then return false end
+    
+    return true
+end
+
+local function GetLocalCharacter()
+    local char = LocalPlayer.Character
+    if char and char.Parent == CharsFolder then
+        return char
+    end
+    for _, child in ipairs(CharsFolder:GetChildren()) do
+        if child:IsA("Model") and child.Name == LocalPlayer.Name then
+            return child
+        end
+    end
+    return char
+end
+
+local function ScanForNPCs(parent, pool)
+    if not parent then return end
+    local children = parent:GetChildren()
+    for i = 1, #children do
+        local obj = children[i]
+        if IsValid(obj) then
+            table.insert(pool, obj)
+        end
+        if obj:IsA("Folder") or obj:IsA("Model") or obj:IsA("Configuration") then
+            ScanForNPCs(obj, pool)
+        end
+    end
+end
+
+local function GetTargetsPool()
+    local pool = {}
+    if TargetType == "NPCs" then
+        local custom = NPCsFolder:FindFirstChild("Custom")
+        if custom then
+            local children = custom:GetChildren()
+            for i = 1, #children do
+                local obj = children[i]
+                if IsValid(obj) then table.insert(pool, obj) end
+            end
+        end
+        
+        local hostile = NPCsFolder:FindFirstChild("Hostile")
+        if hostile then
+            local children = hostile:GetChildren()
+            for i = 1, #children do
+                local obj = children[i]
+                if IsValid(obj) then table.insert(pool, obj) end
+            end
+        end
+
+        local location = ActiveTasksFolder:FindFirstChild("Location")
+        if location then
+            ScanForNPCs(location, pool)
+        end
+    else
+        local players = Players:GetPlayers()
+        for i = 1, #players do
+            local player = players[i]
+            if player ~= LocalPlayer and player.Character and IsValid(player.Character) then
+                table.insert(pool, player.Character)
+            end
+        end
+    end
+    return pool
+end
+
+local function IsVisible(startPos, targetPos, targetInstance, localChar)
+    local direction = targetPos - startPos
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    raycastParams.FilterDescendantsInstances = {localChar, CoreGui}
+    raycastParams.IgnoreWater = true
+    
+    local result = workspace:Raycast(startPos, direction, raycastParams)
+    if result then
+        if result.Instance:IsDescendantOf(targetInstance) then
+            return true
+        end
+        return false
+    end
+    return true
+end
+
+local function GetTargetPart(character)
+    if not character then return nil end
+    if HitPartSelection == "Head" then
+        return character:FindFirstChild("Head")
+    elseif HitPartSelection == "Torso" then
+        return character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso") or character:FindFirstChild("HumanoidRootPart")
+    elseif HitPartSelection == "Left Arm" then
+        return character:FindFirstChild("Left Arm") or character:FindFirstChild("LeftUpperArm") or character:FindFirstChild("LeftHand")
+    elseif HitPartSelection == "Right Arm" then
+        return character:FindFirstChild("Right Arm") or character:FindFirstChild("RightUpperArm") or character:FindFirstChild("RightHand")
+    elseif HitPartSelection == "Left Leg" then
+        return character:FindFirstChild("Left Leg") or character:FindFirstChild("LeftLowerLeg") or character:FindFirstChild("LeftFoot")
+    elseif HitPartSelection == "Right Leg" then
+        return character:FindFirstChild("Right Leg") or character:FindFirstChild("RightLowerLeg") or character:FindFirstChild("RightFoot")
+    elseif HitPartSelection == "Random" then
+        local parts = {}
+        local head = character:FindFirstChild("Head")
+        local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso") or character:FindFirstChild("HumanoidRootPart")
+        local la = character:FindFirstChild("Left Arm") or character:FindFirstChild("LeftUpperArm")
+        local ra = character:FindFirstChild("Right Arm") or character:FindFirstChild("RightUpperArm")
+        local ll = character:FindFirstChild("Left Leg") or character:FindFirstChild("LeftLowerLeg")
+        local rl = character:FindFirstChild("Right Leg") or character:FindFirstChild("RightLowerLeg")
+        
+        if head then table.insert(parts, head) end
+        if torso then table.insert(parts, torso) end
+        if la then table.insert(parts, la) end
+        if ra then table.insert(parts, ra) end
+        if ll then table.insert(parts, ll) end
+        if rl then table.insert(parts, rl) end
+        
+        if #parts > 0 then
+            return parts[math.random(1, #parts)]
+        end
+    end
+    return character:FindFirstChild("HumanoidRootPart")
+end
+
+local function GetClosest(maxDistance)
+    local closest = nil
+    local shortestDistance = maxDistance or math.huge
+    local localChar = GetLocalCharacter()
+    if not localChar then return nil end
+    local localRoot = localChar:FindFirstChild("HumanoidRootPart")
+    if not localRoot then return nil end
+
+    local pool = GetTargetsPool()
+    for i = 1, #pool do
+        local object = pool[i]
+        local targetRoot = object:FindFirstChild("HumanoidRootPart")
+        if targetRoot then
+            local distance = (localRoot.Position - targetRoot.Position).Magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closest = object
+            end
+        end
+    end
+    return closest
+end
+
+local function GetMagazineValue()
+    local localChar = GetLocalCharacter()
+    if localChar then
+        local gunStatus = localChar:FindFirstChild("GunStatus", true)
+        if gunStatus then
+            local magAttribute = gunStatus:GetAttribute("Magazine")
+            if magAttribute then
+                return magAttribute
+            end
+            local magazine = gunStatus:FindFirstChild("Magazine")
+            if magazine and (magazine:IsA("ValueBase") or magazine:IsA("NumberValue") or magazine:IsA("IntValue")) then
+                return magazine.Value
+            end
+        end
+    end
+    return nil
+end
+
+local function ApplyConfigModifications()
+    local gc = getgc(true)
+    for i = 1, #gc do
+        local v = gc[i]
+        if type(v) == "table" then
+            local firing = v.Firing
+            if firing and type(firing) == "table" and firing.Recoil ~= nil then
+                if GCNorecoilEnabled then
+                    firing.Recoil = NumberRange.new(0, 0)
+                    firing.Shake = 0
+                    firing.Kickback = 0
+                    firing.AimedKickback = 0
+                end
+                if GCRPMEnabled then
+                    v.Automatic = true
+                    firing.RPM = 9999
+                end
+            end
+        end
+    end
+end
+
+local function GetPlayerNames()
+    local names = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            table.insert(names, p.Name)
+        end
+    end
+    return names
+end
+
+local lastTargetUpdate = 0
+local function updateTarget()
+    local now = os.clock()
+    if now - lastTargetUpdate < 0.2 then return end
+    lastTargetUpdate = now
+    
+    local closest, dist = nil, math.huge
+    local camCF = Camera.CFrame
+    local camPos = camCF.Position
+    local pool = GetTargetsPool()
+    
+    for i = 1, #pool do
+        local c = pool[i]
+        local head = c:FindFirstChild("Head")
+        local hum = c:FindFirstChildOfClass("Humanoid")
+        if head and hum and hum.Health > 0 then
+            local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+            if onScreen then
+                local fovDist = (Vector2.new(screenPos.X, screenPos.Y) - FOV_Circle.Position).Magnitude
+                if fovDist <= FOVSize then
+                    if WallCheckEnabled then
+                        local localChar = GetLocalCharacter()
+                        if not IsVisible(camPos, head.Position, c, localChar) then
+                            continue
+                        end
+                    end
+                    if fovDist < dist then
+                        dist = fovDist
+                        closest = c
+                    end
+                end
+            end
+        end
+    end
+    cachedTarget = closest
+end
+
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local args = {...}
+    local method = getnamecallmethod()
+    
+    if not checkcaller() then
+        if (method == "FireServer" or method == "InvokeServer") then
+            if self == DamageEvent and NoFallDamageEnabled then
+                return nil
+            end
+            if self == RagdollEvent and NoRagdollEnabled then
+                return nil
+            end
+        end
+        
+        if self == Workspace and (method == "Raycast" or method == "FindPartOnRay") then
+            if SilentAimEnabled and cachedTarget then
+                local origin, direction
+                if method == "Raycast" then
+                    origin, direction = args[1], args[2]
+                else
+                    local ray = args[1]
+                    if typeof(ray) == "Ray" then
+                        origin, direction = ray.Origin, ray.Direction
+                    end
+                end
+                if origin and direction and typeof(direction) == "Vector3" then
+                    local camPos = Camera.CFrame.Position
+                    local distFromCam = (origin - camPos).Magnitude
+                    if distFromCam < 10 and direction.Magnitude > 30 then
+                        if Camera.CFrame.LookVector:Dot(direction.Unit) > 0.4 then
+                            local roll = math.random(1, 100)
+                            if roll <= HitChance then
+                                local targetPart = GetTargetPart(cachedTarget)
+                                if targetPart then
+                                    return {
+                                        Instance = targetPart,
+                                        Position = targetPart.Position,
+                                        Normal = (targetPart.Position - origin).Unit,
+                                        Material = Enum.Material.Plastic
+                                    }
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return oldNamecall(self, ...)
+end)
+
+local camera = workspace:WaitForChild("Camera")
+task.spawn(function()
+    camera.ChildAdded:Connect(function(child)
+        if child.Name == "ViewModel" then
+            task.wait(0.1)
+            ApplyConfigModifications()
+        end
+    end)
+end)
+
+task.spawn(function()
+    local viewModel = camera:FindFirstChild("ViewModel")
+    if viewModel then
+        task.wait(0.1)
+        ApplyConfigModifications()
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.2)
+        if SilentAimEnabled then
+            updateTarget()
+        end
+    end
+end)
+
+local CustomHighlights = {}
+local AuraVisuals = {}
+
+task.spawn(function()
+    while true do
+        RunService.Heartbeat:Wait()
+        
+        local activeAuraTargets = {}
+        local localChar = GetLocalCharacter()
+        local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
+        
+        if VisualsEnabled and localRoot then
+            if MeleeEnabled then
+                local pool = GetTargetsPool()
+                for i = 1, #pool do
+                    local object = pool[i]
+                    local targetRoot = object:FindFirstChild("HumanoidRootPart")
+                    local hum = object:FindFirstChildOfClass("Humanoid")
+                    if targetRoot and hum and hum.Health > 0 then
+                        if (localRoot.Position - targetRoot.Position).Magnitude <= 22 then
+                            activeAuraTargets[object] = hum
+                        end
+                    end
+                end
+            end
+            if GunEnabled and not MeleeEnabled then
+                local target = GetClosest()
+                if target and IsValid(target) then
+                    local hum = target:FindFirstChildOfClass("Humanoid")
+                    local root = target:FindFirstChild("HumanoidRootPart")
+                    if hum and root and IsVisible(localRoot.Position, root.Position, target, localChar) then
+                        activeAuraTargets[target] = hum
+                    end
+                end
+            end
+        end
+
+        for char, data in pairs(AuraVisuals) do
+            if not activeAuraTargets[char] then
+                if AuraVisuals[char].Highlight then pcall(function() AuraVisuals[char].Highlight:Destroy() end) end
+                if AuraVisuals[char].Billboard then pcall(function() AuraVisuals[char].Billboard:Destroy() end) end
+                AuraVisuals[char] = nil
+            end
+        end
+        for char, hum in pairs(activeAuraTargets) do
+            local gameHl = char:FindFirstChildOfClass("Highlight")
+            if gameHl then pcall(function() gameHl:Destroy() end) end
+
+            local hl = AuraVisuals[char] and AuraVisuals[char].Highlight
+            if not hl or hl.Parent ~= CoreGui or not hl:IsDescendantOf(CoreGui) then
+                if hl then pcall(function() hl:Destroy() end) end
+                hl = Instance.new("Highlight")
+                hl.FillTransparency = 1
+                hl.OutlineTransparency = 0
+                hl.OutlineColor = Color3.fromRGB(255, 0, 0)
+                hl.Adornee = char
+                hl.Parent = CoreGui
+                if not AuraVisuals[char] then AuraVisuals[char] = {} end
+                AuraVisuals[char].Highlight = hl
+            end
+            hl.Adornee = char
+
+            local bb = AuraVisuals[char] and AuraVisuals[char].Billboard
+            local head = char:FindFirstChild("Head")
+            if head then
+                if not bb or bb.Parent ~= CoreGui or not bb:IsDescendantOf(CoreGui) then
+                    if bb then pcall(function() bb:Destroy() end) end
+                    bb = Instance.new("BillboardGui")
+                    bb.Size = UDim2.new(0, 100, 0, 30)
+                    bb.AlwaysOnTop = true
+                    bb.StudsOffset = Vector3.new(0, 2, 0)
+                    bb.Adornee = head
+                    
+                    local tl = Instance.new("TextLabel")
+                    tl.Size = UDim2.new(1, 0, 1, 0)
+                    tl.BackgroundTransparency = 1
+                    tl.TextColor3 = Color3.fromRGB(255, 0, 0)
+                    tl.TextSize = 14
+                    tl.Font = Enum.Font.SourceSansBold
+                    tl.Parent = bb
+                    
+                    bb.Parent = CoreGui
+                    if not AuraVisuals[char] then AuraVisuals[char] = {} end
+                    AuraVisuals[char].Billboard = bb
+                end
+                bb.Adornee = head
+                bb.TextLabel.Text = math.floor(hum.Health) .. " / " .. math.floor(hum.MaxHealth)
+            end
+        end
+
+        if SilentAimEnabled and SilentAimVisualsEnabled and cachedTarget and IsValid(cachedTarget) then
+            local targetPart = GetTargetPart(cachedTarget)
+            if targetPart then
+                local vector, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                if onScreen then
+                    SnapLine.To = Vector2.new(vector.X, vector.Y)
+                    SnapLine.Visible = true
+                else
+                    SnapLine.Visible = false
+                end
+            else
+                SnapLine.Visible = false
+            end
+        else
+            SnapLine.Visible = false
+        end
+
+        local desiredHighlights = {}
+        if SilentAimEnabled and SilentAimVisualsEnabled and cachedTarget and IsValid(cachedTarget) then
+            desiredHighlights[cachedTarget] = {Type = "SilentAimHl", Color = Color3.fromRGB(255, 0, 0)}
+        end
+
+        for char, info in pairs(desiredHighlights) do
+            local gameHl = char:FindFirstChildOfClass("Highlight")
+            if gameHl then pcall(function() gameHl:Destroy() end) end
+
+            local hl = CustomHighlights[char]
+            if not hl or hl.Parent ~= CoreGui or not hl:IsDescendantOf(CoreGui) then
+                if hl then pcall(function() hl:Destroy() end) end
+                hl = Instance.new("Highlight")
+                hl.FillTransparency = 0.5
+                hl.OutlineTransparency = 0
+                hl.Parent = CoreGui
+                CustomHighlights[char] = hl
+            end
+            hl.Adornee = char
+            hl.Name = info.Type
+            hl.OutlineColor = info.Color
+            hl.FillColor = info.Color
+        end
+
+        for char, hl in pairs(CustomHighlights) do
+            if not desiredHighlights[char] or not char or not char.Parent or not char:FindFirstChild("HumanoidRootPart") then
+                pcall(function() hl:Destroy() end)
+                CustomHighlights[char] = nil
+            end
+        end
+    end
+end)
+
+Tab:Toggle({
+    Title = "近战光环",
+    Value = false,
+    Callback = function(state)
+        MeleeEnabled = state
+    end
+})
+
+task.spawn(function()
+    local lastMelee = 0
+    while true do
+        RunService.Heartbeat:Wait()
+        if MeleeEnabled then
+            local localChar = GetLocalCharacter()
+            local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
+            local now = os.clock()
+            if now - lastMelee >= 0.01 and localRoot then
+                lastMelee = now
+                local pool = GetTargetsPool()
+                for i = 1, #pool do
+                    local object = pool[i]
+                    local head = object:FindFirstChild("Head")
+                    local targetRoot = object:FindFirstChild("HumanoidRootPart")
+                    if head and targetRoot then
+                        local pos = targetRoot.Position
+                        local dist = (localRoot.Position - pos).Magnitude
+                        if dist <= 22 then
+                            task.spawn(function()
+                                MeleeSwingEvent:InvokeServer()
+                                MeleeHitEvent:FireServer(head, vector.create(pos.X, pos.Y, pos.Z))
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+Tab:Toggle({
+    Title = "垃圾ragebot",
+    Value = false,
+    Callback = function(state)
+        GunEnabled = state
+    end
+})
+
+task.spawn(function()
+    while true do
+        RunService.Heartbeat:Wait()
+        if GunEnabled and not Reloading then
+            local localChar = GetLocalCharacter()
+            local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
+            if localRoot then
+                local target = GetClosest()
+                if target and IsValid(target) then
+                    local torso = target:FindFirstChild("Torso") or target:FindFirstChild("UpperTorso") or target.HumanoidRootPart
+                    local pos = target.HumanoidRootPart.Position
+                    local startPos = localRoot.Position
+                    if IsVisible(startPos, pos, target, localChar) then
+                        GunShootEvent:FireServer(vector.create(startPos.X, startPos.Y, startPos.Z), CFrame.new(startPos, pos), 1, 1, 8929, 2324)
+                        GunHitEvent:FireServer(torso, 2324)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        RunService.Heartbeat:Wait()
+        local ammo = GetMagazineValue()
+        if ammo then
+            if ammo == 0 and not Reloading then
+                Reloading = true
+                task.spawn(function()
+                    ReloadEvent:InvokeServer()
+                end)
+            elseif ammo > 0 then
+                Reloading = false
+            end
+        else
+            Reloading = false
+        end
+    end
+end)
+
+Tab:Toggle({
+    Title = "攻击目标可视化",
+    Value = false,
+    Callback = function(state)
+        VisualsEnabled = state
+    end
+})
+
+Tab:Toggle({
+    Title = "极速射速",
+    Value = false,
+    Callback = function(state)
+        GCRPMEnabled = state
+        ApplyConfigModifications()
+    end
+})
+
+Tab:Toggle({
+    Title = "无后座力",
+    Value = false,
+    Callback = function(state)
+        GCNorecoilEnabled = state
+        ApplyConfigModifications()
+    end
+})
+
+Tab:Toggle({
+    Title = "免疫跌落伤害",
+    Value = false,
+    Callback = function(state)
+        NoFallDamageEnabled = state
+    end
+})
+
+Tab:Toggle({
+    Title = "免疫布娃娃状态",
+    Value = false,
+    Callback = function(state)
+        NoRagdollEnabled = state
+    end
+})
+
+Tab:Toggle({
+    Title = "子追",
+    Value = false,
+    Callback = function(state)
+        SilentAimEnabled = state
+        FOV_Circle.Visible = state
+    end
+})
+
+Tab:Toggle({
+    Title = "子追可视化目标",
+    Value = false,
+    Callback = function(state)
+        SilentAimVisualsEnabled = state
+    end
+})
+
+Tab:Toggle({
+    Title = "掩体检测",
+    Value = false,
+    Callback = function(state)
+        WallCheckEnabled = state
+    end
+})
+
+Tab:Dropdown({
+    Title = "子追部位",
+    Multi = false,
+    AllowNone = false,
+    Value = "Head",
+    Values = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg", "Random"},
+    Callback = function(name)
+        HitPartSelection = name
+    end
+})
+
+Tab:Slider({
+    Title = "子追命中几率",
+    Value = {
+        Min = 0,
+        Max = 100,
+        Default = 100,
+    },
+    Callback = function(val)
+        HitChance = val
+    end
+})
+
+Tab:Slider({
+    Title = "子追fov大小调整",
+    Value = {
+        Min = 10,
+        Max = 500,
+        Default = 100,
+    },
+    Callback = function(val)
+        FOVSize = val
+        FOV_Circle.Radius = val
+    end
+})
+
+Tab:Dropdown({
+    Title = "目标类型",
+    Multi = false,
+    AllowNone = false,
+    Value = "Players",
+    Values = {"Players", "NPCs"},
+    Callback = function(val)
+        TargetType = val
+    end
+})
