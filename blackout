@@ -142,6 +142,152 @@ Tab:Toggle({
 })
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local showName = false
+local showDistance = false
+local playerGuis = {}
+
+local function createPlayerGui(plr)
+    if plr == LocalPlayer then return end
+    local char = plr.Character
+    if not char then return end
+    local head = char:FindFirstChild("Head")
+    if not head then return end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Adornee = head
+    billboard.Size = UDim2.new(0, 120, 0, 18)
+    billboard.StudsOffset = Vector3.new(0, 3.8, 0)
+    billboard.AlwaysOnTop = true
+
+    local bg = Instance.new("Frame")
+    bg.Size = UDim2.new(1, 0, 1, 0)
+    bg.BackgroundColor3 = Color3.new(0, 0, 0)
+    bg.BackgroundTransparency = 0.5
+    bg.BorderSizePixel = 0
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = bg
+    bg.Parent = billboard
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(0.45, 0, 1, 0)
+    nameLabel.Position = UDim2.new(0, 0, 0, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.TextColor3 = Color3.new(1, 1, 0.8)
+    nameLabel.TextScaled = false
+    nameLabel.TextSize = 12
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.Text = plr.DisplayName
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    nameLabel.TextWrapped = false
+    nameLabel.Parent = billboard
+
+    local distLabel = Instance.new("TextLabel")
+    distLabel.Size = UDim2.new(0.45, 0, 1, 0)
+    distLabel.Position = UDim2.new(0.5, 0, 0, 0)
+    distLabel.BackgroundTransparency = 1
+    distLabel.TextColor3 = Color3.new(0.6, 0.9, 1)
+    distLabel.TextScaled = false
+    distLabel.TextSize = 11
+    distLabel.Font = Enum.Font.Gotham
+    distLabel.Text = ""
+    distLabel.TextXAlignment = Enum.TextXAlignment.Left
+    distLabel.Parent = billboard
+
+    nameLabel.Visible = showName
+    distLabel.Visible = showDistance
+    billboard.Enabled = showName or showDistance
+    billboard.Parent = head
+
+    playerGuis[plr] = {
+        billboard = billboard,
+        nameLabel = nameLabel,
+        distLabel = distLabel
+    }
+end
+
+local function updateDistance()
+    local myChar = LocalPlayer.Character
+    if not myChar then return end
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart") or myChar.PrimaryPart
+    if not myRoot then return end
+
+    for plr, data in pairs(playerGuis) do
+        local char = plr.Character
+        if char then
+            local theirRoot = char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart
+            if theirRoot then
+                local dist = (myRoot.Position - theirRoot.Position).Magnitude
+                data.distLabel.Text = string.format("%.0fm", dist)
+            end
+        end
+    end
+end
+
+local function onPlayerAdded(plr)
+    if plr == LocalPlayer then return end
+    plr.CharacterAdded:Connect(function(char)
+        char:WaitForChild("Head")
+        task.wait(0.1)
+        createPlayerGui(plr)
+    end)
+    if plr.Character then
+        createPlayerGui(plr)
+    end
+end
+
+local function onPlayerRemoving(plr)
+    local data = playerGuis[plr]
+    if data then
+        data.billboard:Destroy()
+        playerGuis[plr] = nil
+    end
+end
+
+for _, plr in ipairs(Players:GetPlayers()) do
+    onPlayerAdded(plr)
+end
+
+Players.PlayerAdded:Connect(onPlayerAdded)
+Players.PlayerRemoving:Connect(onPlayerRemoving)
+
+RunService.Heartbeat:Connect(function()
+    if showDistance then
+        updateDistance()
+    end
+end)
+
+Tab:Toggle({
+    Title = "显示玩家名字",
+    Value = false,
+    Callback = function(state)
+        showName = state
+        for _, data in pairs(playerGuis) do
+            data.nameLabel.Visible = state
+            data.billboard.Enabled = state or showDistance
+        end
+    end
+})
+
+Tab:Toggle({
+    Title = "显示距离",
+    Value = false,
+    Callback = function(state)
+        showDistance = state
+        for _, data in pairs(playerGuis) do
+            data.distLabel.Visible = state
+            data.billboard.Enabled = showName or state
+        end
+        if state then
+            updateDistance()
+        end
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
