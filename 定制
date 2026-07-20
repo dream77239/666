@@ -1,6 +1,6 @@
 local current_hwid = gethwid()
 
-if current_hwid ~= "e0a136c15e4d7bbb00d6b6d66d167ebe27d0ea5bea0e3d84840e6233fc8f0a62" then
+if current_hwid ~= "03f6eaa0b05fd3ffdc96c8226f0b286d2680e375e46e458dbc10e97f9fc83033" then
     game.Players.LocalPlayer:Kick("Access Denied")
     return
 end
