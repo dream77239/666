@@ -7126,6 +7126,632 @@ Tab:Toggle({
 	end
 })
 end
+local function night()
+Window:Divider()
+local Tab = Window:Tab({  
+    Title = "普通功能",  
+    Icon = "house",  
+    Locked = false,
+})
+Tab:Button({
+    Title = "汉化飞行",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/dream77239/fly/refs/heads/main/README.md"))()
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local tpwalking = false
+local tpwalkSpeed = 20
+
+Tab:Toggle({
+    Title = "速度",
+    Value = false,
+    Callback = function(state)
+        tpwalking = state
+        if state then
+            spawn(function()
+                while tpwalking do
+                    local chr = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                    local hrp = chr:FindFirstChild("HumanoidRootPart")
+                    local hum = chr:FindFirstChildWhichIsA("Humanoid")
+                    local delta = RunService.Heartbeat:Wait()
+                    if hrp and hum and hum.MoveDirection.Magnitude > 0 then
+                        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * tpwalkSpeed * delta)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+Tab:Slider({
+    Title = "速度调节",
+    Value = {
+        Min = 0,
+        Max = 100,
+        Default = tpwalkSpeed,
+    },
+    Callback = function(value)
+        tpwalkSpeed = value
+    end
+})
+local OriginalHoldTimes = {}
+local promptConnection
+local heartbeatConnection
+
+Tab:Toggle({
+    Title = "秒互动",
+    Value = false,
+    Callback = function(state)
+        if state then
+            for _, prompt in pairs(workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[prompt] then
+                        OriginalHoldTimes[prompt] = prompt.HoldDuration
+                    end
+                    prompt.HoldDuration = 0
+                end
+            end
+            promptConnection = workspace.DescendantAdded:Connect(function(obj)
+                if obj:IsA("ProximityPrompt") then
+                    if not OriginalHoldTimes[obj] then
+                        OriginalHoldTimes[obj] = obj.HoldDuration
+                    end
+                    obj.HoldDuration = 0
+                end
+            end)
+            heartbeatConnection = RunService.Heartbeat:Connect(function()
+                for prompt, original in pairs(OriginalHoldTimes) do
+                    if prompt and prompt.Parent then
+                        prompt.HoldDuration = 0
+                    end
+                end
+            end)
+        else
+            if promptConnection then promptConnection:Disconnect() end
+            if heartbeatConnection then heartbeatConnection:Disconnect() end
+            for prompt, original in pairs(OriginalHoldTimes) do
+                if prompt and prompt.Parent then
+                    prompt.HoldDuration = original
+                end
+            end
+        end
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+
+local NoclipEnabled = false
+local NoclipConnection
+
+local function setCharacterCollision(character, state)
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = state
+        end
+    end
+end
+
+local function enableNoclip()
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    setCharacterCollision(character, false)
+
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+    end
+
+    NoclipConnection = RunService.Stepped:Connect(function()
+        if not NoclipEnabled then return end
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in ipairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function disableNoclip()
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+
+    local character = LocalPlayer.Character
+    if character then
+        setCharacterCollision(character, true)
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    if NoclipEnabled then
+        task.wait(0.2)
+        enableNoclip()
+    end
+end)
+
+Tab:Toggle({
+    Title = "穿墙",
+    Value = false,
+    Callback = function(state)
+        NoclipEnabled = state
+        if state then
+            enableNoclip()
+        else
+            disableNoclip()
+        end
+    end
+})
+local Tab = Window:Tab({  
+    Title = "透视",  
+    Icon = "eye",  
+    Locked = false,
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+Tab:Toggle({
+    Title = "玩家透视",
+    Value = false,
+    Callback = function(state)
+        playerEspOn = state
+        if playerEspOn then
+            local function applyHighlight(parent, outlineColor)
+                if parent:FindFirstChild("_KanlHL") then return end
+                local hl = Instance.new("Highlight")
+                hl.Name = "_KanlHL"
+                hl.FillTransparency = 1
+                hl.OutlineTransparency = 0
+                hl.OutlineColor = outlineColor
+                hl.FillColor = outlineColor
+                hl.Adornee = parent
+                hl.Parent = parent
+            end
+
+            local function applyPlayerEsp(plr)
+                if plr == game:GetService("Players").LocalPlayer then return end
+                local function onChar(char)
+                    if playerEspOn then applyHighlight(char, Color3.fromRGB(0, 255, 0)) end
+                end
+                if plr.Character then onChar(plr.Character) end
+                plr.CharacterAdded:Connect(onChar)
+            end
+
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do 
+                applyPlayerEsp(plr) 
+            end
+
+            game:GetService("Players").PlayerAdded:Connect(function(plr)
+                if playerEspOn then applyPlayerEsp(plr) end
+            end)
+        else
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+                if plr ~= game:GetService("Players").LocalPlayer and plr.Character then
+                    local hl = plr.Character:FindFirstChild("_KanlHL")
+                    if hl then hl:Destroy() end
+                end
+            end
+        end
+    end
+})
+Tab:Toggle({
+    Title = "怪物透视",
+    Value = false,
+    Callback = function(enabled)
+        local Workspace = game:GetService("Workspace")
+
+        local espThread = nil
+        local espConnections = {}
+        local espHighlights = {}
+
+        local function cleanESP()
+            for _, conn in ipairs(espConnections) do
+                conn:Disconnect()
+            end
+            table.clear(espConnections)
+
+            for target, highlight in pairs(espHighlights) do
+                if highlight and highlight.Parent then
+                    highlight:Destroy()
+                end
+            end
+            table.clear(espHighlights)
+        end
+
+        local function applyHighlight(target)
+            if not target or not target.Parent then return end
+            local highlight = espHighlights[target]
+            if not highlight or highlight.Parent ~= target or highlight.Adornee ~= target then
+                if highlight then highlight:Destroy() end
+                highlight = Instance.new("Highlight")
+                highlight.Name = "SelfCustomESP"
+                highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+                highlight.FillTransparency = 0.5
+                highlight.OutlineTransparency = 0
+                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                highlight.Adornee = target
+                highlight.Parent = target
+                espHighlights[target] = highlight
+            end
+        end
+
+        if enabled then
+            cleanESP()
+
+            espThread = task.spawn(function()
+                local animatronics = Workspace:WaitForChild("Animatronics", 5)
+                if not animatronics then return end
+
+                local function checkAndApply(child)
+                    if child:IsA("Model") or child:IsA("BasePart") or child:IsA("Folder") then
+                        applyHighlight(child)
+                    end
+                end
+
+                for _, child in ipairs(animatronics:GetChildren()) do
+                    checkAndApply(child)
+                end
+
+                local connAdd = animatronics.ChildAdded:Connect(function(child)
+                    task.wait(0.05)
+                    checkAndApply(child)
+                end)
+                table.insert(espConnections, connAdd)
+
+                local connRem = animatronics.ChildRemoved:Connect(function(child)
+                    if espHighlights[child] then
+                        espHighlights[child]:Destroy()
+                        espHighlights[child] = nil
+                    end
+                end)
+                table.insert(espConnections, connRem)
+
+                while enabled do
+                    for _, child in ipairs(animatronics:GetChildren()) do
+                        if child:IsA("Model") or child:IsA("BasePart") or child:IsA("Folder") then
+                            local current = child:FindFirstChild("SelfCustomESP")
+                            if not current or not current:IsA("Highlight") or current.Adornee ~= child or current.Enabled == false then
+                                applyHighlight(child)
+                            end
+                        end
+                    end
+                    task.wait(0.3)
+                end
+            end)
+        else
+            if espThread then
+                task.cancel(espThread)
+                espThread = nil
+            end
+            cleanESP()
+        end
+    end
+})
+
+local Tab = Window:Tab({  
+    Title = "自动收集",  
+    Icon = "tractor",  
+    Locked = false,
+})
+Tab:Toggle({
+    Title = "自动摇八音盒",
+    Value = false,
+    Callback = function(enabled)
+        local Players = game:GetService("Players")
+        local Workspace = game:GetService("Workspace")
+        local LocalPlayer = Players.LocalPlayer
+
+        local function getHRP()
+            local char = LocalPlayer.Character
+            if char then
+                return char:FindFirstChild("HumanoidRootPart")
+            end
+            return nil
+        end
+
+        local puppetThread = nil
+        local puppetSavedCFrame = nil
+
+        if enabled then
+            local hrp = getHRP()
+            if not hrp then return end
+            puppetSavedCFrame = hrp.CFrame
+
+            puppetThread = task.spawn(function()
+                local filterFolder = Workspace:WaitForChild("Filter", 5)
+                if not filterFolder then return end
+                local puppetBox = filterFolder:WaitForChild("PuppetBox", 5)
+                if not puppetBox then return end
+
+                local boxCFrame = puppetBox:IsA("BasePart") and puppetBox.CFrame or puppetBox:GetPivot()
+                local safeTargetPos = boxCFrame.Position + (boxCFrame.LookVector * 4)
+                local safeCFrame = CFrame.lookAt(safeTargetPos, boxCFrame.Position)
+
+                local currentHRP = getHRP()
+                if currentHRP then
+                    currentHRP.CFrame = safeCFrame
+                end
+
+                local puppetVal = puppetBox:WaitForChild("PuppetVal", 5)
+
+                while enabled do
+                    if not puppetBox or not puppetBox.Parent then break end
+                    if puppetVal and puppetVal.Value >= 100 then break end
+
+                    local prompts = {}
+                    for _, obj in ipairs(puppetBox:GetDescendants()) do
+                        if obj:IsA("ProximityPrompt") then
+                            table.insert(prompts, obj)
+                        end
+                    end
+
+                    for _, prompt in ipairs(prompts) do
+                        if fireproximityprompt then
+                            fireproximityprompt(prompt)
+                        else
+                            prompt:InputBegan(Enum.ProximityPromptInputType.Touch)
+                        end
+                    end
+
+                    task.wait(0.05)
+                end
+
+                local returnHRP = getHRP()
+                if returnHRP and puppetSavedCFrame then
+                    returnHRP.CFrame = puppetSavedCFrame
+                end
+            end)
+        else
+            if puppetThread then
+                task.cancel(puppetThread)
+                puppetThread = nil
+            end
+            local returnHRP = getHRP()
+            if returnHRP and puppetSavedCFrame then
+                returnHRP.CFrame = puppetSavedCFrame
+            end
+            puppetSavedCFrame = nil
+        end
+    end
+})
+Tab:Toggle({
+    Title = "自动修复电力盒",
+    Value = false,
+    Callback = function(enabled)
+        local Players = game:GetService("Players")
+        local Workspace = game:GetService("Workspace")
+        local LocalPlayer = Players.LocalPlayer
+
+        local function getHRP()
+            local char = LocalPlayer.Character
+            if char then
+                return char:FindFirstChild("HumanoidRootPart")
+            end
+            return nil
+        end
+
+        local powerBoxThread = nil
+        local powerBoxSavedCFrame = nil
+
+        if enabled then
+            local hrp = getHRP()
+            if not hrp then return end
+            powerBoxSavedCFrame = hrp.CFrame
+
+            powerBoxThread = task.spawn(function()
+                local filterFolder = Workspace:WaitForChild("Filter", 5)
+                if not filterFolder then return end
+                local powerBox = filterFolder:WaitForChild("PowerBox", 5)
+                if not powerBox then return end
+
+                local openVal = powerBox:WaitForChild("OpenVal", 5)
+
+                while enabled do
+                    if not powerBox or not powerBox.Parent then break end
+
+                    if openVal and openVal.Value == true then
+                        local currentHRP = getHRP()
+                        if currentHRP and not powerBoxSavedCFrame then
+                            powerBoxSavedCFrame = currentHRP.CFrame
+                        end
+
+                        local boxCFrame = powerBox:IsA("BasePart") and powerBox.CFrame or powerBox:GetPivot()
+                        local safeTargetPos = boxCFrame.Position + (boxCFrame.LookVector * 4)
+                        local safeCFrame = CFrame.lookAt(safeTargetPos, boxCFrame.Position)
+
+                        if currentHRP then
+                            currentHRP.CFrame = safeCFrame
+                        end
+
+                        while enabled and openVal and openVal.Value == true and powerBox and powerBox.Parent do
+                            local prompts = {}
+                            for _, obj in ipairs(powerBox:GetDescendants()) do
+                                if obj:IsA("ProximityPrompt") then
+                                    table.insert(prompts, obj)
+                                end
+                            end
+
+                            for _, prompt in ipairs(prompts) do
+                                if fireproximityprompt then
+                                    fireproximityprompt(prompt)
+                                else
+                                    prompt:InputBegan(Enum.ProximityPromptInputType.Touch)
+                                end
+                            end
+
+                            task.wait(0.05)
+                        end
+
+                        local returnHRP = getHRP()
+                        if returnHRP and powerBoxSavedCFrame then
+                            returnHRP.CFrame = powerBoxSavedCFrame
+                        end
+                    end
+
+                    task.wait(0.2)
+                end
+            end)
+        else
+            if powerBoxThread then
+                task.cancel(powerBoxThread)
+                powerBoxThread = nil
+            end
+            local returnHRP = getHRP()
+            if returnHRP and powerBoxSavedCFrame then
+                returnHRP.CFrame = powerBoxSavedCFrame
+            end
+            powerBoxSavedCFrame = nil
+        end
+    end
+})
+Tab:Toggle({
+    Title = "自动收集金币",
+    Value = false,
+    Callback = function(enabled)
+        local Players = game:GetService("Players")
+        local Workspace = game:GetService("Workspace")
+        local LocalPlayer = Players.LocalPlayer
+
+        local function getHRP()
+            local char = LocalPlayer.Character
+            if char then
+                return char:FindFirstChild("HumanoidRootPart")
+            end
+            return nil
+        end
+
+        local coinsThread = nil
+        local coinsSavedCFrame = nil
+
+        local function getCoinTargetPart(coin)
+            if not coin then return nil end
+            if coin:IsA("BasePart") then
+                return coin
+            elseif coin:IsA("Model") then
+                if coin.PrimaryPart then
+                    return coin.PrimaryPart
+                end
+                local hrp = coin:FindFirstChild("HumanoidRootPart")
+                if hrp and hrp:IsA("BasePart") then
+                    return hrp
+                end
+                local firstPart = coin:FindFirstChildWhichIsA("BasePart", true)
+                if firstPart then
+                    return firstPart
+                end
+            end
+            return nil
+        end
+
+        if enabled then
+            local hrp = getHRP()
+            if not hrp then return end
+            coinsSavedCFrame = hrp.CFrame
+
+            coinsThread = task.spawn(function()
+                local filterFolder = Workspace:WaitForChild("Filter", 5)
+                if not filterFolder then return end
+                local coinsFolder = filterFolder:WaitForChild("Coins", 5)
+                if not coinsFolder then return end
+
+                local processedCoins = {}
+
+                while enabled do
+                    local currentCoins = coinsFolder:GetChildren()
+                    local targetCoin = nil
+
+                    for _, coin in ipairs(currentCoins) do
+                        if not processedCoins[coin] and (coin:IsA("BasePart") or coin:IsA("Model")) then
+                            if getCoinTargetPart(coin) then
+                                targetCoin = coin
+                                break
+                            end
+                        end
+                    end
+
+                    if not targetCoin then
+                        task.wait(0.5)
+                        local recheck = coinsFolder:GetChildren()
+                        local hasUnprocessed = false
+                        for _, coin in ipairs(recheck) do
+                            if not processedCoins[coin] and getCoinTargetPart(coin) then
+                                hasUnprocessed = true
+                                break
+                            end
+                        end
+                        if not hasUnprocessed then
+                            break
+                        end
+                    else
+                        processedCoins[targetCoin] = true
+                        local targetPart = getCoinTargetPart(targetCoin)
+
+                        if targetPart then
+                            local attempts = 0
+                            local offsets = {
+                                Vector3.new(0, 0.1, 0),
+                                Vector3.new(0, -0.1, 0),
+                                Vector3.new(0.2, 0, 0),
+                                Vector3.new(-0.2, 0, 0),
+                                Vector3.new(0, 0, 0.2),
+                                Vector3.new(0, 0, -0.2),
+                                Vector3.new(0.4, 0.1, 0),
+                                Vector3.new(-0.4, -0.1, 0)
+                            }
+
+                            while targetCoin and targetCoin.Parent == coinsFolder and enabled do
+                                local currentHRP = getHRP()
+                                local currentTargetPart = getCoinTargetPart(targetCoin)
+
+                                if currentHRP and currentTargetPart then
+                                    local baseCFrame = currentTargetPart.CFrame
+                                    local offsetIndex = (attempts % #offsets) + 1
+                                    local currentOffset = offsets[offsetIndex]
+                                    
+                                    currentHRP.CFrame = baseCFrame * CFrame.new(currentOffset)
+                                end
+
+                                attempts = attempts + 1
+                                task.wait(0.08)
+                            end
+                        end
+                    end
+                    task.wait(0.05)
+                end
+
+                local returnHRP = getHRP()
+                if returnHRP and coinsSavedCFrame then
+                    returnHRP.CFrame = coinsSavedCFrame
+                end
+            end)
+        else
+            if coinsThread then
+                task.cancel(coinsThread)
+                coinsThread = nil
+            end
+            local returnHRP = getHRP()
+            if returnHRP and coinsSavedCFrame then
+                returnHRP.CFrame = coinsSavedCFrame
+            end
+            coinsSavedCFrame = nil
+        end
+    end
+})
+
+end
 local Tab = Window:Tab({  
     Title = "游戏选择",  
     Icon = "house",  
@@ -7157,7 +7783,8 @@ local game_functions = {
     [100588763114828] = xkjg,
     [116802177276368] = fssd,
     [17220221299] = xq,
-    [131403226200723] = eye
+    [131403226200723] = eye,
+    [107421525627908] = night
 }
 
 local function check_game()
@@ -7263,5 +7890,11 @@ Tab:Button({
     Title = "不要眨眼",
     Callback = function()
     eye()
+    end
+})
+Tab:Button({
+    Title = "与弗雷迪熊共度的无尽之夜",
+    Callback = function()
+    night()
     end
 })
