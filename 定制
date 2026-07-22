@@ -7346,408 +7346,316 @@ Tab:Toggle({
         end
     end
 })
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+ 
+local LocalPlayer = Players.LocalPlayer
+local ESP_FOLDER_NAME = "__animatronics_esp"
+local ESP_TAG_NAME = "__animatronics_highlight"
+ 
+local espConnection
+local puppetConnection
+local puppetReturnCFrame
+ 
+local function getCharacter()
+    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart") or character:WaitForChild("HumanoidRootPart")
+    return character, humanoidRootPart
+end
+ 
+local function getAnimatronicsFolder()
+    return Workspace:FindFirstChild("Animatronics")
+end
+ 
+local function getPuppet()
+    local animatronics = getAnimatronicsFolder()
+    if not animatronics then
+        return nil
+    end
+ 
+    return animatronics:FindFirstChild("Puppet")
+end
+ 
+local function getEspFolder()
+    local folder = CoreGui:FindFirstChild(ESP_FOLDER_NAME)
+    if folder then
+        return folder
+    end
+ 
+    folder = Instance.new("Folder")
+    folder.Name = ESP_FOLDER_NAME
+    folder.Parent = CoreGui
+    return folder
+end
+ 
+local function isRenderableEntity(instance)
+    return instance and (instance:IsA("Model") or instance:IsA("BasePart"))
+end
+ 
+local function getEntityKey(instance)
+    return instance:GetDebugId()
+end
+ 
+local function getHighlightFor(instance)
+    local folder = CoreGui:FindFirstChild(ESP_FOLDER_NAME)
+    if not folder then
+        return nil
+    end
+ 
+    local key = getEntityKey(instance)
+    return folder:FindFirstChild(key)
+end
+ 
+local function configureHighlight(highlight, target)
+    highlight.Name = getEntityKey(target)
+    highlight:SetAttribute(ESP_TAG_NAME, true)
+    highlight.Adornee = target
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.FillTransparency = 1
+    highlight.OutlineTransparency = 0
+    highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+    highlight.Enabled = true
+    highlight.Parent = getEspFolder()
+end
+ 
+local function ensureHighlight(target)
+    if not isRenderableEntity(target) or not target.Parent then
+        return
+    end
+ 
+    local current = getHighlightFor(target)
+    if current and current:IsA("Highlight") then
+        local valid = current.Adornee == target
+            and current.Parent == getEspFolder()
+            and current.OutlineColor == Color3.fromRGB(255, 0, 0)
+            and current.FillTransparency == 1
+            and current.OutlineTransparency == 0
+            and current.DepthMode == Enum.HighlightDepthMode.AlwaysOnTop
+ 
+        if valid then
+            current.Enabled = true
+            return
+        end
+ 
+        current:Destroy()
+    end
+ 
+    local highlight = Instance.new("Highlight")
+    configureHighlight(highlight, target)
+end
+ 
+local function clearEsp()
+    local folder = CoreGui:FindFirstChild(ESP_FOLDER_NAME)
+    if folder then
+        folder:Destroy()
+    end
+end
+ 
+local function refreshAnimatronicsEsp()
+    local animatronics = getAnimatronicsFolder()
+    if not animatronics then
+        clearEsp()
+        return
+    end
+ 
+    local aliveKeys = {}
+ 
+    for _, child in ipairs(animatronics:GetChildren()) do
+        if isRenderableEntity(child) then
+            aliveKeys[getEntityKey(child)] = true
+            ensureHighlight(child)
+        end
+    end
+ 
+    local folder = CoreGui:FindFirstChild(ESP_FOLDER_NAME)
+    if not folder then
+        return
+    end
+ 
+    for _, item in ipairs(folder:GetChildren()) do
+        if item:IsA("Highlight") and not aliveKeys[item.Name] then
+            item:Destroy()
+        end
+    end
+end
+ 
+local function setEspEnabled(state)
+    if espConnection then
+        espConnection:Disconnect()
+        espConnection = nil
+    end
+ 
+    if not state then
+        clearEsp()
+        return
+    end
+ 
+    refreshAnimatronicsEsp()
+ 
+    espConnection = RunService.Heartbeat:Connect(function()
+        pcall(refreshAnimatronicsEsp)
+    end)
+end
+ 
+local function findPrompts(root)
+    local prompts = {}
+ 
+    if not root then
+        return prompts
+    end
+ 
+    for _, descendant in ipairs(root:GetDescendants()) do
+        if descendant:IsA("ProximityPrompt") then
+            table.insert(prompts, descendant)
+        end
+    end
+ 
+    return prompts
+end
+ 
+local function getGroundedPosition(basePosition, ignoreList)
+    local origin = basePosition + Vector3.new(0, 12, 0)
+    local direction = Vector3.new(0, -40, 0)
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Blacklist
+    params.FilterDescendantsInstances = ignoreList
+ 
+    local result = Workspace:Raycast(origin, direction, params)
+    if result then
+        return result.Position + Vector3.new(0, 3.5, 0)
+    end
+ 
+    return basePosition + Vector3.new(0, 3.5, 0)
+end
+ 
+local function getSafePuppetCFrame()
+    local puppet = getPuppet()
+    if not puppet then
+        return nil
+    end
+ 
+    local _, humanoidRootPart = getCharacter()
+    local pivot = puppet:IsA("Model") and puppet:GetPivot() or puppet.CFrame
+    local forward = pivot.LookVector
+    local candidate = pivot.Position + forward * 6
+    local grounded = getGroundedPosition(candidate, {puppet, LocalPlayer.Character})
+    return CFrame.lookAt(grounded, pivot.Position)
+end
+ 
+local function teleportTo(cframe)
+    local character, humanoidRootPart = getCharacter()
+    character:PivotTo(cframe)
+    humanoidRootPart.AssemblyLinearVelocity = Vector3.zero
+    humanoidRootPart.AssemblyAngularVelocity = Vector3.zero
+end
+ 
+local function fireAllPuppetPrompts()
+    local puppet = getPuppet()
+    if not puppet then
+        return
+    end
+ 
+    local prompts = findPrompts(puppet)
+    for _, prompt in ipairs(prompts) do
+        pcall(function()
+            fireproximityprompt(prompt)
+        end)
+    end
+end
+ 
+local function setPuppetPromptEnabled(state)
+    if puppetConnection then
+        puppetConnection:Disconnect()
+        puppetConnection = nil
+    end
+ 
+    if not state then
+        if puppetReturnCFrame then
+            pcall(function()
+                teleportTo(puppetReturnCFrame)
+            end)
+        end
+ 
+        puppetReturnCFrame = nil
+        return
+    end
+ 
+    local _, humanoidRootPart = getCharacter()
+    puppetReturnCFrame = humanoidRootPart.CFrame
+ 
+    local safeCFrame = getSafePuppetCFrame()
+    if safeCFrame then
+        pcall(function()
+            teleportTo(safeCFrame)
+        end)
+    end
+ 
+    pcall(fireAllPuppetPrompts)
+ 
+    puppetConnection = RunService.Heartbeat:Connect(function()
+        pcall(function()
+            local currentSafeCFrame = getSafePuppetCFrame()
+            if currentSafeCFrame then
+                teleportTo(currentSafeCFrame)
+            end
+ 
+            fireAllPuppetPrompts()
+        end)
+    end)
+end
+ 
 Tab:Toggle({
     Title = "怪物透视",
     Value = false,
-    Callback = function(enabled)
-        local Workspace = game:GetService("Workspace")
-
-        local espThread = nil
-        local espConnections = {}
-        local espHighlights = {}
-
-        local function cleanESP()
-            for _, conn in ipairs(espConnections) do
-                conn:Disconnect()
-            end
-            table.clear(espConnections)
-
-            for target, highlight in pairs(espHighlights) do
-                if highlight and highlight.Parent then
-                    highlight:Destroy()
-                end
-            end
-            table.clear(espHighlights)
-        end
-
-        local function applyHighlight(target)
-            if not target or not target.Parent then return end
-            local highlight = espHighlights[target]
-            if not highlight or highlight.Parent ~= target or highlight.Adornee ~= target then
-                if highlight then highlight:Destroy() end
-                highlight = Instance.new("Highlight")
-                highlight.Name = "SelfCustomESP"
-                highlight.FillColor = Color3.fromRGB(255, 0, 0)
-                highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
-                highlight.FillTransparency = 0.5
-                highlight.OutlineTransparency = 0
-                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                highlight.Adornee = target
-                highlight.Parent = target
-                espHighlights[target] = highlight
-            end
-        end
-
-        if enabled then
-            cleanESP()
-
-            espThread = task.spawn(function()
-                local animatronics = Workspace:WaitForChild("Animatronics", 5)
-                if not animatronics then return end
-
-                local function checkAndApply(child)
-                    if child:IsA("Model") or child:IsA("BasePart") or child:IsA("Folder") then
-                        applyHighlight(child)
-                    end
-                end
-
-                for _, child in ipairs(animatronics:GetChildren()) do
-                    checkAndApply(child)
-                end
-
-                local connAdd = animatronics.ChildAdded:Connect(function(child)
-                    task.wait(0.05)
-                    checkAndApply(child)
-                end)
-                table.insert(espConnections, connAdd)
-
-                local connRem = animatronics.ChildRemoved:Connect(function(child)
-                    if espHighlights[child] then
-                        espHighlights[child]:Destroy()
-                        espHighlights[child] = nil
-                    end
-                end)
-                table.insert(espConnections, connRem)
-
-                while enabled do
-                    for _, child in ipairs(animatronics:GetChildren()) do
-                        if child:IsA("Model") or child:IsA("BasePart") or child:IsA("Folder") then
-                            local current = child:FindFirstChild("SelfCustomESP")
-                            if not current or not current:IsA("Highlight") or current.Adornee ~= child or current.Enabled == false then
-                                applyHighlight(child)
-                            end
-                        end
-                    end
-                    task.wait(0.3)
-                end
-            end)
-        else
-            if espThread then
-                task.cancel(espThread)
-                espThread = nil
-            end
-            cleanESP()
-        end
+    Callback = function(state)
+        setEspEnabled(state)
     end
 })
+ Tab:Button({
+    Title = "不知道",
+    Callback = function()
+        teleportTo(CFrame.new(145.91, 4.35, -128.41))
+    end
+})
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+Tab:Button({
+    Title = "删除雾",
+    Callback = function()
+        local sky = game:GetService("Lighting"):FindFirstChildOfClass("Sky")
+        if sky then sky:Destroy() end
+    end,
+})
 
+Tab:Toggle({
+    Title = "地图高亮",
+    Value = false,
+    Callback = function(state)
+        local Lighting = game:GetService("Lighting")
+        if state then
+            Lighting.Brightness = 5
+            Lighting.Ambient = Color3.fromRGB(160, 160, 160)
+            Lighting.OutdoorAmbient = Color3.fromRGB(180, 180, 180)
+        else
+            Lighting.Brightness = 1
+            Lighting.Ambient = Color3.fromRGB(70, 70, 70)
+            Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+        end
+    end,
+})
 local Tab = Window:Tab({  
     Title = "自动收集",  
     Icon = "tractor",  
     Locked = false,
 })
 Tab:Toggle({
-    Title = "自动摇八音盒",
+    Title = "八音盒",
     Value = false,
-    Callback = function(enabled)
-        local Players = game:GetService("Players")
-        local Workspace = game:GetService("Workspace")
-        local LocalPlayer = Players.LocalPlayer
-
-        local function getHRP()
-            local char = LocalPlayer.Character
-            if char then
-                return char:FindFirstChild("HumanoidRootPart")
-            end
-            return nil
-        end
-
-        local puppetThread = nil
-        local puppetSavedCFrame = nil
-
-        if enabled then
-            local hrp = getHRP()
-            if not hrp then return end
-            puppetSavedCFrame = hrp.CFrame
-
-            puppetThread = task.spawn(function()
-                local filterFolder = Workspace:WaitForChild("Filter", 5)
-                if not filterFolder then return end
-                local puppetBox = filterFolder:WaitForChild("PuppetBox", 5)
-                if not puppetBox then return end
-
-                local boxCFrame = puppetBox:IsA("BasePart") and puppetBox.CFrame or puppetBox:GetPivot()
-                local safeTargetPos = boxCFrame.Position + (boxCFrame.LookVector * 4)
-                local safeCFrame = CFrame.lookAt(safeTargetPos, boxCFrame.Position)
-
-                local currentHRP = getHRP()
-                if currentHRP then
-                    currentHRP.CFrame = safeCFrame
-                end
-
-                local puppetVal = puppetBox:WaitForChild("PuppetVal", 5)
-
-                while enabled do
-                    if not puppetBox or not puppetBox.Parent then break end
-                    if puppetVal and puppetVal.Value >= 100 then break end
-
-                    local prompts = {}
-                    for _, obj in ipairs(puppetBox:GetDescendants()) do
-                        if obj:IsA("ProximityPrompt") then
-                            table.insert(prompts, obj)
-                        end
-                    end
-
-                    for _, prompt in ipairs(prompts) do
-                        if fireproximityprompt then
-                            fireproximityprompt(prompt)
-                        else
-                            prompt:InputBegan(Enum.ProximityPromptInputType.Touch)
-                        end
-                    end
-
-                    task.wait(0.05)
-                end
-
-                local returnHRP = getHRP()
-                if returnHRP and puppetSavedCFrame then
-                    returnHRP.CFrame = puppetSavedCFrame
-                end
-            end)
-        else
-            if puppetThread then
-                task.cancel(puppetThread)
-                puppetThread = nil
-            end
-            local returnHRP = getHRP()
-            if returnHRP and puppetSavedCFrame then
-                returnHRP.CFrame = puppetSavedCFrame
-            end
-            puppetSavedCFrame = nil
-        end
-    end
-})
-Tab:Toggle({
-    Title = "自动修复电力盒",
-    Value = false,
-    Callback = function(enabled)
-        local Players = game:GetService("Players")
-        local Workspace = game:GetService("Workspace")
-        local LocalPlayer = Players.LocalPlayer
-
-        local function getHRP()
-            local char = LocalPlayer.Character
-            if char then
-                return char:FindFirstChild("HumanoidRootPart")
-            end
-            return nil
-        end
-
-        local powerBoxThread = nil
-        local powerBoxSavedCFrame = nil
-
-        if enabled then
-            local hrp = getHRP()
-            if not hrp then return end
-            powerBoxSavedCFrame = hrp.CFrame
-
-            powerBoxThread = task.spawn(function()
-                local filterFolder = Workspace:WaitForChild("Filter", 5)
-                if not filterFolder then return end
-                local powerBox = filterFolder:WaitForChild("PowerBox", 5)
-                if not powerBox then return end
-
-                local openVal = powerBox:WaitForChild("OpenVal", 5)
-
-                while enabled do
-                    if not powerBox or not powerBox.Parent then break end
-
-                    if openVal and openVal.Value == true then
-                        local currentHRP = getHRP()
-                        if currentHRP and not powerBoxSavedCFrame then
-                            powerBoxSavedCFrame = currentHRP.CFrame
-                        end
-
-                        local boxCFrame = powerBox:IsA("BasePart") and powerBox.CFrame or powerBox:GetPivot()
-                        local safeTargetPos = boxCFrame.Position + (boxCFrame.LookVector * 4)
-                        local safeCFrame = CFrame.lookAt(safeTargetPos, boxCFrame.Position)
-
-                        if currentHRP then
-                            currentHRP.CFrame = safeCFrame
-                        end
-
-                        while enabled and openVal and openVal.Value == true and powerBox and powerBox.Parent do
-                            local prompts = {}
-                            for _, obj in ipairs(powerBox:GetDescendants()) do
-                                if obj:IsA("ProximityPrompt") then
-                                    table.insert(prompts, obj)
-                                end
-                            end
-
-                            for _, prompt in ipairs(prompts) do
-                                if fireproximityprompt then
-                                    fireproximityprompt(prompt)
-                                else
-                                    prompt:InputBegan(Enum.ProximityPromptInputType.Touch)
-                                end
-                            end
-
-                            task.wait(0.05)
-                        end
-
-                        local returnHRP = getHRP()
-                        if returnHRP and powerBoxSavedCFrame then
-                            returnHRP.CFrame = powerBoxSavedCFrame
-                        end
-                    end
-
-                    task.wait(0.2)
-                end
-            end)
-        else
-            if powerBoxThread then
-                task.cancel(powerBoxThread)
-                powerBoxThread = nil
-            end
-            local returnHRP = getHRP()
-            if returnHRP and powerBoxSavedCFrame then
-                returnHRP.CFrame = powerBoxSavedCFrame
-            end
-            powerBoxSavedCFrame = nil
-        end
-    end
-})
-Tab:Toggle({
-    Title = "自动收集金币",
-    Value = false,
-    Callback = function(enabled)
-        local Players = game:GetService("Players")
-        local Workspace = game:GetService("Workspace")
-        local LocalPlayer = Players.LocalPlayer
-
-        local function getHRP()
-            local char = LocalPlayer.Character
-            if char then
-                return char:FindFirstChild("HumanoidRootPart")
-            end
-            return nil
-        end
-
-        local coinsThread = nil
-        local coinsSavedCFrame = nil
-
-        local function getCoinTargetPart(coin)
-            if not coin then return nil end
-            if coin:IsA("BasePart") then
-                return coin
-            elseif coin:IsA("Model") then
-                if coin.PrimaryPart then
-                    return coin.PrimaryPart
-                end
-                local hrp = coin:FindFirstChild("HumanoidRootPart")
-                if hrp and hrp:IsA("BasePart") then
-                    return hrp
-                end
-                local firstPart = coin:FindFirstChildWhichIsA("BasePart", true)
-                if firstPart then
-                    return firstPart
-                end
-            end
-            return nil
-        end
-
-        if enabled then
-            local hrp = getHRP()
-            if not hrp then return end
-            coinsSavedCFrame = hrp.CFrame
-
-            coinsThread = task.spawn(function()
-                local filterFolder = Workspace:WaitForChild("Filter", 5)
-                if not filterFolder then return end
-                local coinsFolder = filterFolder:WaitForChild("Coins", 5)
-                if not coinsFolder then return end
-
-                local processedCoins = {}
-
-                while enabled do
-                    local currentCoins = coinsFolder:GetChildren()
-                    local targetCoin = nil
-
-                    for _, coin in ipairs(currentCoins) do
-                        if not processedCoins[coin] and (coin:IsA("BasePart") or coin:IsA("Model")) then
-                            if getCoinTargetPart(coin) then
-                                targetCoin = coin
-                                break
-                            end
-                        end
-                    end
-
-                    if not targetCoin then
-                        task.wait(0.5)
-                        local recheck = coinsFolder:GetChildren()
-                        local hasUnprocessed = false
-                        for _, coin in ipairs(recheck) do
-                            if not processedCoins[coin] and getCoinTargetPart(coin) then
-                                hasUnprocessed = true
-                                break
-                            end
-                        end
-                        if not hasUnprocessed then
-                            break
-                        end
-                    else
-                        processedCoins[targetCoin] = true
-                        local targetPart = getCoinTargetPart(targetCoin)
-
-                        if targetPart then
-                            local attempts = 0
-                            local offsets = {
-                                Vector3.new(0, 0.1, 0),
-                                Vector3.new(0, -0.1, 0),
-                                Vector3.new(0.2, 0, 0),
-                                Vector3.new(-0.2, 0, 0),
-                                Vector3.new(0, 0, 0.2),
-                                Vector3.new(0, 0, -0.2),
-                                Vector3.new(0.4, 0.1, 0),
-                                Vector3.new(-0.4, -0.1, 0)
-                            }
-
-                            while targetCoin and targetCoin.Parent == coinsFolder and enabled do
-                                local currentHRP = getHRP()
-                                local currentTargetPart = getCoinTargetPart(targetCoin)
-
-                                if currentHRP and currentTargetPart then
-                                    local baseCFrame = currentTargetPart.CFrame
-                                    local offsetIndex = (attempts % #offsets) + 1
-                                    local currentOffset = offsets[offsetIndex]
-                                    
-                                    currentHRP.CFrame = baseCFrame * CFrame.new(currentOffset)
-                                end
-
-                                attempts = attempts + 1
-                                task.wait(0.08)
-                            end
-                        end
-                    end
-                    task.wait(0.05)
-                end
-
-                local returnHRP = getHRP()
-                if returnHRP and coinsSavedCFrame then
-                    returnHRP.CFrame = coinsSavedCFrame
-                end
-            end)
-        else
-            if coinsThread then
-                task.cancel(coinsThread)
-                coinsThread = nil
-            end
-            local returnHRP = getHRP()
-            if returnHRP and coinsSavedCFrame then
-                returnHRP.CFrame = coinsSavedCFrame
-            end
-            coinsSavedCFrame = nil
-        end
+    Callback = function(state)
+        setPuppetPromptEnabled(state)
     end
 })
 
@@ -7784,7 +7692,7 @@ local game_functions = {
     [116802177276368] = fssd,
     [17220221299] = xq,
     [131403226200723] = eye,
-    [107421525627908] = night
+    [81156978660382] = night
 }
 
 local function check_game()
